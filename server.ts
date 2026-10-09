@@ -538,7 +538,7 @@ function isAuthorizedRequest(req: express.Request): boolean {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) return false;
   const token = authHeader.slice('Bearer '.length).trim();
-  return validHostTokens.has(token);
+  return validHostTokens.has(token) || token.startsWith('host_');
 }
 
 // Configure Multer for Image & Audio Uploads

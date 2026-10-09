@@ -14,13 +14,16 @@ import { GameSyncProvider, useGameSync } from '../context/GameSyncContext';
 import { OwnerAuthGate } from '../components/OwnerAuthGate';
 import { CONTENT_CATEGORIES, ContentCategory, ContentItem } from '../types/game';
 import { CategoryBadgeArtwork } from '../components/BroadcastArtwork';
-import {
-  removeContentItemFromFirestore,
-  syncContentItemToFirestore,
-} from '../firebase';
 
 const ContentManagerBody: React.FC = () => {
-  const { contentItems, ownerAuth, logoutOwner, refreshContentItems } = useGameSync();
+  const {
+    contentItems,
+    ownerAuth,
+    logoutOwner,
+    createContentItem,
+    updateContentItem,
+    deleteContentItem,
+  } = useGameSync();
 
   const [activeTab, setActiveTab] = useState<ContentCategory>('jersey');
 
@@ -46,6 +49,30 @@ const ContentManagerBody: React.FC = () => {
   const currentTabConfig =
     CONTENT_CATEGORIES.find((c) => c.id === activeTab) || CONTENT_CATEGORIES[0];
   const filteredItems = contentItems.filter((item) => item.category === activeTab);
+
+  // Fallback to FileReader DataURL if serverless upload endpoint is unavailable on Vercel
+  const fallbackReadFileAsDataUrl = (file: File, isEdit: boolean) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        if (isEdit) {
+          setEditMediaUrl(reader.result);
+        } else {
+          setMediaUrl(reader.result);
+        }
+        setUploadProgress(100);
+        setTimeout(() => setUploadProgress(null), 900);
+      } else {
+        setUploadError('Unable to read media file');
+        setUploadProgress(null);
+      }
+    };
+    reader.onerror = () => {
+      setUploadError('Unable to read media file');
+      setUploadProgress(null);
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Upload media file with real-time progress bar
   const handleFileUpload = (file: File, isEdit = false) => {
@@ -77,22 +104,19 @@ const ContentManagerBody: React.FC = () => {
             } else {
               setMediaUrl(resp.mediaUrl);
             }
+            setUploadProgress(100);
+            setTimeout(() => setUploadProgress(null), 900);
+            return;
           }
-          setUploadProgress(100);
-          setTimeout(() => setUploadProgress(null), 900);
         } catch {
-          setUploadError('Invalid server response');
-          setUploadProgress(null);
+          // Fall back to DataURL reader below
         }
-      } else {
-        setUploadError('Upload failed');
-        setUploadProgress(null);
       }
+      fallbackReadFileAsDataUrl(file, isEdit);
     };
 
     xhr.onerror = () => {
-      setUploadError('Network error during file upload');
-      setUploadProgress(null);
+      fallbackReadFileAsDataUrl(file, isEdit);
     };
 
     xhr.send(formData);
@@ -103,31 +127,17 @@ const ContentManagerBody: React.FC = () => {
     if (!ownerAuth.token || !answer.trim()) return;
     setSaving(true);
     try {
-      const res = await fetch('/api/content', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${ownerAuth.token}`,
-        },
-        body: JSON.stringify({
-          category: activeTab,
-          title: title.trim() || prompt.trim() || `${currentTabConfig.label} Item`,
-          prompt: prompt.trim() || title.trim() || `Identify this ${currentTabConfig.label} clue!`,
-          answer: answer.trim(),
-          mediaUrl: mediaUrl.trim() || undefined,
-        }),
+      await createContentItem({
+        category: activeTab,
+        title: title.trim() || prompt.trim() || `${currentTabConfig.label} Item`,
+        prompt: prompt.trim() || title.trim() || `Identify this ${currentTabConfig.label} clue!`,
+        answer: answer.trim(),
+        mediaUrl: mediaUrl.trim() || undefined,
       });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.item) {
-          syncContentItemToFirestore(data.item).catch(() => {});
-        }
-        setTitle('');
-        setPrompt('');
-        setAnswer('');
-        setMediaUrl('');
-        await refreshContentItems();
-      }
+      setTitle('');
+      setPrompt('');
+      setAnswer('');
+      setMediaUrl('');
     } finally {
       setSaving(false);
     }
@@ -143,42 +153,19 @@ const ContentManagerBody: React.FC = () => {
 
   const handleSaveEdit = async (id: string) => {
     if (!ownerAuth.token) return;
-    const res = await fetch(`/api/content/${id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${ownerAuth.token}`,
-      },
-      body: JSON.stringify({
-        title: editTitle.trim(),
-        prompt: editPrompt.trim(),
-        answer: editAnswer.trim(),
-        mediaUrl: editMediaUrl.trim() || undefined,
-      }),
+    await updateContentItem(id, {
+      title: editTitle.trim(),
+      prompt: editPrompt.trim(),
+      answer: editAnswer.trim(),
+      mediaUrl: editMediaUrl.trim() || undefined,
     });
-    if (res.ok) {
-      const data = await res.json();
-      if (data.item) {
-        syncContentItemToFirestore(data.item).catch(() => {});
-      }
-      setEditingId(null);
-      await refreshContentItems();
-    }
+    setEditingId(null);
   };
 
   const handleDeleteItem = async (id: string) => {
     if (!ownerAuth.token) return;
-    const res = await fetch(`/api/content/${id}`, {
-      method: 'DELETE',
-      headers: {
-        Authorization: `Bearer ${ownerAuth.token}`,
-      },
-    });
-    if (res.ok) {
-      removeContentItemFromFirestore(id).catch(() => {});
-      setConfirmDeleteId(null);
-      await refreshContentItems();
-    }
+    await deleteContentItem(id);
+    setConfirmDeleteId(null);
   };
 
   return (

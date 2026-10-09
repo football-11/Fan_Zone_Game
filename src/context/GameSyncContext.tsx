@@ -106,6 +106,15 @@ export const GameSyncProvider: React.FC<{
     fetchInitialState();
   }, [fetchInitialState]);
 
+  // Serverless / Vercel Fallback Polling when WebSocket is disconnected
+  useEffect(() => {
+    if (connected) return;
+    const pollId = setInterval(() => {
+      fetchInitialState();
+    }, 900);
+    return () => clearInterval(pollId);
+  }, [connected, fetchInitialState]);
+
   // WebSocket Real-Time Connection with Auto-Reconnect
   useEffect(() => {
     let isMounted = true;

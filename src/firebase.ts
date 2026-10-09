@@ -1,15 +1,23 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 import {
-  getFirestore,
-  doc,
-  getDocFromServer,
-  setDoc,
-  deleteDoc,
-  serverTimestamp,
-} from 'firebase/firestore';
+  getAuth,
+  GoogleAuthProvider,
+  onAuthStateChanged,
+  signInWithPopup,
+  signOut,
+  User,
+} from 'firebase/auth';
+import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 import { ContentItem } from './types/game';
+import {
+  createContentItemInFirestore,
+  deleteContentItemFromFirestore,
+  getContentItemFromFirestore,
+  listOwnerContentItemsFromFirestore,
+  subscribeToOwnerContentItems,
+  updateContentItemInFirestore,
+} from './services/firestoreService';
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
@@ -79,6 +87,10 @@ async function testConnection() {
 }
 testConnection();
 
+export function onOwnerAuthStateChanged(callback: (user: User | null) => void) {
+  return onAuthStateChanged(auth, callback);
+}
+
 export async function signInOwnerWithGoogle() {
   const result = await signInWithPopup(auth, googleProvider);
   return result.user;
@@ -88,38 +100,19 @@ export async function signOutOwner() {
   await signOut(auth);
 }
 
-// Mirror content items to Firestore when the owner is authenticated via Firebase
 export async function syncContentItemToFirestore(item: ContentItem) {
-  if (!auth.currentUser || !auth.currentUser.emailVerified) return;
-  const safeId = item.id.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 128);
-  const path = `contentItems/${safeId}`;
-  try {
-    await setDoc(doc(db, 'contentItems', safeId), {
-      id: safeId,
-      category: item.category,
-      prompt: (item.prompt || item.title || 'Clue').slice(0, 500),
-      answer: (item.answer || 'Answer').slice(0, 300),
-      mediaUrl: (item.mediaUrl || '').slice(0, 1000),
-      ownerId: auth.currentUser.uid.slice(0, 128),
-      createdAt: serverTimestamp(),
-    });
-  } catch (error) {
-    // Only throw if missing or insufficient permissions per skill contract
-    if (error instanceof Error && error.message.includes('Missing or insufficient permissions')) {
-      handleFirestoreError(error, OperationType.WRITE, path);
-    }
-  }
+  await createContentItemInFirestore(item);
 }
 
 export async function removeContentItemFromFirestore(itemId: string) {
-  if (!auth.currentUser || !auth.currentUser.emailVerified) return;
-  const safeId = itemId.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 128);
-  const path = `contentItems/${safeId}`;
-  try {
-    await deleteDoc(doc(db, 'contentItems', safeId));
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('Missing or insufficient permissions')) {
-      handleFirestoreError(error, OperationType.DELETE, path);
-    }
-  }
+  await deleteContentItemFromFirestore(itemId);
 }
+
+export {
+  createContentItemInFirestore,
+  updateContentItemInFirestore,
+  getContentItemFromFirestore,
+  listOwnerContentItemsFromFirestore,
+  subscribeToOwnerContentItems,
+  deleteContentItemFromFirestore,
+};

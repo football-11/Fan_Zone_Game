@@ -5,7 +5,27 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [
+      react(),
+      tailwindcss(),
+      {
+        name: 'suppress-vite-client-ws-error',
+        transform(code, id) {
+          if (id.includes('vite/dist/client/client.mjs')) {
+            return code
+              .replace(
+                'reject(/* @__PURE__ */ new Error("WebSocket closed without opened."));',
+                'resolve();'
+              )
+              .replace(
+                'transport.connect(createHMRHandler(handleMessage));',
+                '/* hmr transport disabled */'
+              );
+          }
+          return null;
+        },
+      },
+    ],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

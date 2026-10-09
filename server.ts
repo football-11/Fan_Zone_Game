@@ -577,26 +577,12 @@ async function startServer() {
   const clients = new Set<ClientMeta>();
 
   const wss = new WebSocketServer({ noServer: true });
-  const viteFallbackWss = new WebSocketServer({ noServer: true });
-
-  viteFallbackWss.on('connection', (ws) => {
-    // Keep @vite/client transport happy when HMR is disabled in preview container
-    try {
-      ws.send(JSON.stringify({ type: 'connected' }));
-    } catch {
-      // ignore
-    }
-  });
 
   server.on('upgrade', (req, socket, head) => {
     const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
     if (url.pathname === '/ws') {
       wss.handleUpgrade(req, socket, head, (ws) => {
         wss.emit('connection', ws, req);
-      });
-    } else if (process.env.DISABLE_HMR === 'true') {
-      viteFallbackWss.handleUpgrade(req, socket, head, (ws) => {
-        viteFallbackWss.emit('connection', ws, req);
       });
     }
   });
@@ -1285,11 +1271,40 @@ async function startServer() {
     const vite = await createViteServer({
       server: {
         middlewareMode: true,
-        hmr: process.env.DISABLE_HMR !== 'true' ? { server } : false,
-        watch: process.env.DISABLE_HMR === 'true' ? null : {},
+        hmr: false,
+        watch: null,
       },
       appType: 'spa',
     });
+
+    app.use((req, res, next) => {
+      if (req.url && req.url.startsWith('/@vite/client')) {
+        delete req.headers['if-none-match'];
+        delete req.headers['if-modified-since'];
+        const origEnd = res.end.bind(res);
+        (res as any).end = (chunk: any, encoding?: any, cb?: any) => {
+          if (chunk) {
+            const str = Buffer.isBuffer(chunk) ? chunk.toString('utf-8') : String(chunk);
+            const patched = str
+              .replace(
+                'reject(/* @__PURE__ */ new Error("WebSocket closed without opened."));',
+                'resolve();'
+              )
+              .replace(
+                'transport.connect(createHMRHandler(handleMessage));',
+                '/* hmr transport disabled */'
+              );
+            res.removeHeader('Content-Length');
+            res.removeHeader('ETag');
+            res.setHeader('Cache-Control', 'no-store');
+            return origEnd(patched, 'utf-8', cb);
+          }
+          return origEnd(chunk, encoding, cb);
+        };
+      }
+      next();
+    });
+
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(__dirname, 'dist');

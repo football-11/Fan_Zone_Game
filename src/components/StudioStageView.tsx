@@ -319,11 +319,17 @@ export const StudioStageView: React.FC<{
             } ${stageAnim === 'board-enter' ? 'animate-board-return' : ''}`}
           >
             {state.cards.map((card, idx) => {
+              const revealedCard = state.cards.find((c) => c.revealed);
+              const isLockedByPick = Boolean(
+                revealedCard && revealedCard.cardNumber !== card.cardNumber
+              );
               const isSelected = state.selectedCardNumber === card.cardNumber;
               return (
                 <div
                   key={`${boardDealKey}-${card.cardNumber}`}
-                  className="relative w-full h-full animate-card-deal"
+                  className={`relative w-full h-full animate-card-deal transition-opacity duration-300 ${
+                    isLockedByPick ? 'opacity-45 grayscale-[60%]' : 'opacity-100'
+                  }`}
                   style={{
                     perspective: '1200px',
                     animationDelay: `${idx * 45}ms`,
@@ -341,7 +347,9 @@ export const StudioStageView: React.FC<{
                       className={`absolute inset-0 rounded-2xl bg-gradient-to-b from-[#0E1E38] to-[#081326] flex flex-col items-center justify-between transition-all duration-300 ${
                         isPreview ? 'p-2 border' : 'p-4 lg:p-6 border-2'
                       } ${
-                        isSelected
+                        isLockedByPick
+                          ? 'border-slate-800/70 scale-[0.97]'
+                          : isSelected
                           ? 'border-[#F59E0B] shadow-[0_0_28px_rgba(245,158,11,0.38)] scale-[1.015]'
                           : 'border-slate-700/80'
                       }`}
@@ -355,22 +363,32 @@ export const StudioStageView: React.FC<{
                         >
                           #{card.cardNumber}
                         </span>
-                        {card.scored && (
+                        {isLockedByPick ? (
                           <span
-                            className={`font-['Outfit'] font-bold ${
+                            className={`font-['Outfit'] font-bold tracking-wider uppercase text-slate-400 ${
                               isPreview ? 'text-[8px]' : 'text-xs'
-                            } ${
-                              card.scoreResult === 'correct'
-                                ? card.awardedTeam === 'red'
-                                  ? 'text-red-400'
-                                  : 'text-sky-400'
-                                : 'text-slate-400'
                             }`}
                           >
-                            {card.scoreResult === 'correct'
-                              ? `+1 ${card.awardedTeam?.toUpperCase()}`
-                              : 'PLAYED'}
+                            LOCKED
                           </span>
+                        ) : (
+                          card.scored && (
+                            <span
+                              className={`font-['Outfit'] font-bold ${
+                                isPreview ? 'text-[8px]' : 'text-xs'
+                              } ${
+                                card.scoreResult === 'correct'
+                                  ? card.awardedTeam === 'red'
+                                    ? 'text-red-400'
+                                    : 'text-sky-400'
+                                  : 'text-slate-400'
+                              }`}
+                            >
+                              {card.scoreResult === 'correct'
+                                ? `+1 ${card.awardedTeam?.toUpperCase()}`
+                                : 'PLAYED'}
+                            </span>
+                          )
                         )}
                       </div>
 

@@ -790,6 +790,11 @@ export const GameSyncProvider: React.FC<{
           }
 
           case 'card:select': {
+            const revealedCard = next.cards.find((c) => c.revealed);
+            if (revealedCard) {
+              next.selectedCardNumber = revealedCard.cardNumber;
+              break;
+            }
             const cardNum = Number(payload.cardNumber);
             if (cardNum >= 1 && cardNum <= 8) {
               next.selectedCardNumber = cardNum;
@@ -798,6 +803,11 @@ export const GameSyncProvider: React.FC<{
           }
 
           case 'card:reveal': {
+            const revealedCard = next.cards.find((c) => c.revealed);
+            if (revealedCard) {
+              next.selectedCardNumber = revealedCard.cardNumber;
+              break;
+            }
             const cardNum = Number(payload.cardNumber) || next.selectedCardNumber;
             const card = next.cards.find((c) => c.cardNumber === cardNum);
             if (card) {
@@ -808,10 +818,13 @@ export const GameSyncProvider: React.FC<{
           }
 
           case 'card:openMiniGame': {
-            const cardNum = Number(payload.cardNumber) || next.selectedCardNumber;
+            const revealedCard = next.cards.find((c) => c.revealed);
+            const cardNum = revealedCard
+              ? revealedCard.cardNumber
+              : Number(payload.cardNumber) || next.selectedCardNumber;
             const card = next.cards.find((c) => c.cardNumber === cardNum);
             if (!card) break;
-            next.selectedCardNumber = cardNum;
+            next.selectedCardNumber = card.cardNumber;
             card.revealed = true;
             next.stage = 'minigame';
             if (card.category === 'tictactoe') {

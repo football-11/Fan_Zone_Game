@@ -618,11 +618,21 @@ export default async function handler(req: any, res: any) {
         break;
       }
       case 'card:select': {
+        const revealedCard = session.cards.find((c) => c.revealed);
+        if (revealedCard) {
+          session.selectedCardNumber = revealedCard.cardNumber;
+          break;
+        }
         const cardNum = Number(payload.cardNumber);
         if (cardNum >= 1 && cardNum <= 8) session.selectedCardNumber = cardNum;
         break;
       }
       case 'card:reveal': {
+        const revealedCard = session.cards.find((c) => c.revealed);
+        if (revealedCard) {
+          session.selectedCardNumber = revealedCard.cardNumber;
+          break;
+        }
         const cardNum = Number(payload.cardNumber) || session.selectedCardNumber;
         const card = session.cards.find((c) => c.cardNumber === cardNum);
         if (card) {
@@ -632,10 +642,13 @@ export default async function handler(req: any, res: any) {
         break;
       }
       case 'card:openMiniGame': {
-        const cardNum = Number(payload.cardNumber) || session.selectedCardNumber;
+        const revealedCard = session.cards.find((c) => c.revealed);
+        const cardNum = revealedCard
+          ? revealedCard.cardNumber
+          : Number(payload.cardNumber) || session.selectedCardNumber;
         const card = session.cards.find((c) => c.cardNumber === cardNum);
         if (!card) break;
-        session.selectedCardNumber = cardNum;
+        session.selectedCardNumber = card.cardNumber;
         card.revealed = true;
         session.stage = 'minigame';
         db.timerStartedAt = null;

@@ -168,89 +168,119 @@ const HostConsoleBody: React.FC = () => {
 
           {/* Interactive 2x4 Main Board Card Selector */}
           <section className="bg-[#081326] border border-slate-800 rounded-2xl p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <h2 className="text-base font-bold font-['Outfit'] text-white">
-                  2×4 Main Board Card Selector (Fixed Emoji Covers + Hidden Categories)
-                </h2>
-                <p className="text-xs text-slate-400">
-                  Tap any card (#1–#8) to select it, then Reveal Card or Open Mini Game
-                </p>
-              </div>
-              <span className="text-xs font-['JetBrains_Mono'] font-bold text-amber-400">
-                Selected: Card #{state.selectedCardNumber}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {state.cards.map((card) => {
-                const isSelected = state.selectedCardNumber === card.cardNumber;
-                return (
-                  <button
-                    key={card.cardNumber}
-                    type="button"
-                    onClick={() =>
-                      sendHostAction('card:select', { cardNumber: card.cardNumber })
-                    }
-                    className={`min-h-[124px] p-3 rounded-xl border text-left transition-all flex flex-col justify-between cursor-pointer ${
-                      isSelected
-                        ? 'bg-[#0E2240] border-2 border-[#F59E0B] shadow-[0_0_20px_rgba(245,158,11,0.28)]'
-                        : 'bg-[#030914]/90 border-slate-800 hover:border-slate-700'
-                    }`}
-                  >
-                    <div className="w-full flex items-center justify-between">
-                      <span className="font-['JetBrains_Mono'] font-bold text-sm text-amber-400 tabular-nums">
-                        #{card.cardNumber}
-                      </span>
-                      <span
-                        className={`text-[11px] font-semibold ${
-                          card.revealed ? 'text-emerald-400' : 'text-slate-400'
-                        }`}
-                      >
-                        {card.revealed ? 'Revealed' : 'Covered'}
-                      </span>
-                    </div>
-
-                    <div className="my-2 flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5">
-                        <EmojiBadgeArtwork emojiId={card.emojiId} className="w-10 h-10 shrink-0" />
-                        <CategoryBadgeArtwork
-                          category={card.category}
-                          className="w-10 h-10 shrink-0"
-                        />
-                      </div>
-                    </div>
-
+            {(() => {
+              const revealedCard = state.cards.find((c) => c.revealed);
+              return (
+                <>
+                  <div className="flex items-center justify-between mb-3">
                     <div>
-                      <div className="text-xs font-bold font-['Outfit'] text-white truncate">
-                        {card.categoryTitle}
-                      </div>
-                      <div className="text-[11px] text-slate-400 flex items-center justify-between mt-0.5">
-                        <span>{card.emojiLabel}</span>
-                        <span>·</span>
-                        <span
-                          className={
-                            card.scored
-                              ? card.scoreResult === 'correct'
-                                ? card.awardedTeam === 'red'
-                                  ? 'text-red-400 font-bold'
-                                  : 'text-sky-400 font-bold'
-                                : 'text-amber-400 font-bold'
-                              : 'text-slate-500'
-                          }
-                        >
-                          {card.scored
-                            ? card.scoreResult === 'correct'
-                              ? `+1 ${card.awardedTeam?.toUpperCase()}`
-                              : '0 pts'
-                            : 'Unscored'}
-                        </span>
-                      </div>
+                      <h2 className="text-base font-bold font-['Outfit'] text-white">
+                        2×4 Main Board Card Selector (1 Pick Per Turn)
+                      </h2>
+                      <p className="text-xs text-slate-400">
+                        {revealedCard
+                          ? `Card #${revealedCard.cardNumber} (${revealedCard.emojiLabel}) is picked — other 7 emojis are locked until Back to Board, Reset Covers, or Shuffle Sports.`
+                          : 'Tap any card (#1–#8) to select it, then Reveal Card or Open Mini Game'}
+                      </p>
                     </div>
-                  </button>
-                );
-              })}
-            </div>
+                    <span className="text-xs font-['JetBrains_Mono'] font-bold text-amber-400 shrink-0">
+                      {revealedCard
+                        ? `Locked: Card #${revealedCard.cardNumber}`
+                        : `Selected: Card #${state.selectedCardNumber}`}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {state.cards.map((card) => {
+                      const isSelected = state.selectedCardNumber === card.cardNumber;
+                      const isLockedByPick = Boolean(
+                        revealedCard && revealedCard.cardNumber !== card.cardNumber
+                      );
+                      return (
+                        <button
+                          key={card.cardNumber}
+                          type="button"
+                          disabled={isLockedByPick}
+                          onClick={() =>
+                            sendHostAction('card:select', { cardNumber: card.cardNumber })
+                          }
+                          className={`min-h-[124px] p-3 rounded-xl border text-left transition-all flex flex-col justify-between ${
+                            isLockedByPick
+                              ? 'bg-[#030914]/50 border-slate-800/60 opacity-40 grayscale cursor-not-allowed'
+                              : isSelected
+                              ? 'bg-[#0E2240] border-2 border-[#F59E0B] shadow-[0_0_20px_rgba(245,158,11,0.28)] cursor-pointer'
+                              : 'bg-[#030914]/90 border-slate-800 hover:border-slate-700 cursor-pointer'
+                          }`}
+                        >
+                          <div className="w-full flex items-center justify-between">
+                            <span className="font-['JetBrains_Mono'] font-bold text-sm text-amber-400 tabular-nums">
+                              #{card.cardNumber}
+                            </span>
+                            <span
+                              className={`text-[11px] font-semibold ${
+                                card.revealed
+                                  ? 'text-emerald-400'
+                                  : isLockedByPick
+                                  ? 'text-rose-400'
+                                  : 'text-slate-400'
+                              }`}
+                            >
+                              {card.revealed
+                                ? 'Picked & Revealed'
+                                : isLockedByPick
+                                ? 'Locked'
+                                : 'Covered'}
+                            </span>
+                          </div>
+
+                          <div className="my-2 flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1.5">
+                              <EmojiBadgeArtwork
+                                emojiId={card.emojiId}
+                                className="w-10 h-10 shrink-0"
+                              />
+                              <CategoryBadgeArtwork
+                                category={card.category}
+                                className="w-10 h-10 shrink-0"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <div className="text-xs font-bold font-['Outfit'] text-white truncate">
+                              {card.categoryTitle}
+                            </div>
+                            <div className="text-[11px] text-slate-400 flex items-center justify-between mt-0.5">
+                              <span>{card.emojiLabel}</span>
+                              <span>·</span>
+                              <span
+                                className={
+                                  card.scored
+                                    ? card.scoreResult === 'correct'
+                                      ? card.awardedTeam === 'red'
+                                        ? 'text-red-400 font-bold'
+                                        : 'text-sky-400 font-bold'
+                                      : 'text-amber-400 font-bold'
+                                    : 'text-slate-500'
+                                }
+                              >
+                                {card.scored
+                                  ? card.scoreResult === 'correct'
+                                    ? `+1 ${card.awardedTeam?.toUpperCase()}`
+                                    : '0 pts'
+                                  : isLockedByPick
+                                  ? 'Locked'
+                                  : 'Available'}
+                              </span>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              );
+            })()}
           </section>
         </div>
 
@@ -434,13 +464,18 @@ const HostConsoleBody: React.FC = () => {
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
+                disabled={state.cards.some((c) => c.revealed)}
                 onClick={() =>
                   sendHostAction('card:reveal', { cardNumber: state.selectedCardNumber })
                 }
-                className="min-h-[48px] px-4 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer whitespace-nowrap"
+                className="min-h-[48px] px-4 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 disabled:opacity-40 disabled:cursor-not-allowed text-slate-950 font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer whitespace-nowrap"
               >
                 <Eye className="w-4 h-4 shrink-0" />
-                <span>Reveal Selected Card</span>
+                <span>
+                  {state.cards.some((c) => c.revealed)
+                    ? '1 Card Picked (Others Locked)'
+                    : 'Reveal Selected Card'}
+                </span>
               </button>
 
               <button

@@ -720,6 +720,12 @@ async function startServer() {
       }
 
       case 'card:select': {
+        const revealedCard = session.cards.find((c) => c.revealed);
+        if (revealedCard) {
+          // Lock selection to the already-picked card until Reset Covers, Shuffle Sports, or Back to Board
+          session.selectedCardNumber = revealedCard.cardNumber;
+          break;
+        }
         const cardNum = Number(payload.cardNumber);
         if (cardNum >= 1 && cardNum <= 8) {
           session.selectedCardNumber = cardNum;
@@ -728,6 +734,12 @@ async function startServer() {
       }
 
       case 'card:reveal': {
+        const revealedCard = session.cards.find((c) => c.revealed);
+        if (revealedCard) {
+          // Only one emoji icon can be picked/revealed at a time
+          session.selectedCardNumber = revealedCard.cardNumber;
+          break;
+        }
         const cardNum = Number(payload.cardNumber) || session.selectedCardNumber;
         const card = session.cards.find((c) => c.cardNumber === cardNum);
         if (card) {
@@ -739,10 +751,13 @@ async function startServer() {
       }
 
       case 'card:openMiniGame': {
-        const cardNum = Number(payload.cardNumber) || session.selectedCardNumber;
+        const revealedCard = session.cards.find((c) => c.revealed);
+        const cardNum = revealedCard
+          ? revealedCard.cardNumber
+          : Number(payload.cardNumber) || session.selectedCardNumber;
         const card = session.cards.find((c) => c.cardNumber === cardNum);
         if (!card) break;
-        session.selectedCardNumber = cardNum;
+        session.selectedCardNumber = card.cardNumber;
         card.revealed = true;
         session.stage = 'minigame';
 

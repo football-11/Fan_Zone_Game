@@ -1,0 +1,6 @@
+{
+  "name": "FanZone Game",
+  "description": "Live football entertainment broadcast game show with synchronized 16:9 Studio Display, iPad Host Console, and Persistent Content Manager.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

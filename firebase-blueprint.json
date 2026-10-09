@@ -1,0 +1,60 @@
+{
+  "entities": {
+    "ContentItem": {
+      "title": "ContentItem",
+      "description": "A persistent trivia or media item in the FanZone content bank.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the content item",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "category": {
+          "type": "string",
+          "description": "One of the 7 content bank categories",
+          "enum": ["jersey", "photo", "stadium", "logo", "quiz", "number", "audio"],
+          "maxLength": 32
+        },
+        "prompt": {
+          "type": "string",
+          "description": "Clue, title, or question text shown to players",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "answer": {
+          "type": "string",
+          "description": "Official private answer for the item",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "mediaUrl": {
+          "type": "string",
+          "description": "URL path to uploaded or sample image/audio asset",
+          "maxLength": 1000
+        },
+        "ownerId": {
+          "type": "string",
+          "description": "UID of the authenticated broadcast owner",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp"
+        }
+      },
+      "required": ["id", "category", "prompt", "answer", "ownerId", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/contentItems/{itemId}": {
+      "schema": {
+        "$ref": "#/entities/ContentItem"
+      },
+      "description": "Persistent content items owned by the studio broadcast owner"
+    }
+  }
+}

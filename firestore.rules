@@ -1,0 +1,81 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isVerifiedUser() && (
+        request.auth.token.email == 'footballtotel11@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidCategory(cat) {
+      return cat is string && cat.size() <= 32 && (
+        cat == 'jersey' ||
+        cat == 'photo' ||
+        cat == 'stadium' ||
+        cat == 'logo' ||
+        cat == 'quiz' ||
+        cat == 'number' ||
+        cat == 'audio'
+      );
+    }
+
+    function isValidContentItem(data) {
+      return data.keys().hasAll(['id', 'category', 'prompt', 'answer', 'ownerId', 'createdAt']) &&
+        data.keys().hasOnly(['id', 'category', 'prompt', 'answer', 'mediaUrl', 'ownerId', 'createdAt']) &&
+        isValidId(data.id) &&
+        isValidCategory(data.category) &&
+        data.prompt is string && data.prompt.size() >= 1 && data.prompt.size() <= 500 &&
+        data.answer is string && data.answer.size() >= 1 && data.answer.size() <= 300 &&
+        (!('mediaUrl' in data) || (data.mediaUrl is string && data.mediaUrl.size() <= 1000)) &&
+        isValidId(data.ownerId) &&
+        data.ownerId == request.auth.uid &&
+        data.createdAt is timestamp;
+    }
+
+    match /contentItems/{itemId} {
+      allow get: if isVerifiedUser() && isValidId(itemId) && (existing().ownerId == request.auth.uid || isAdmin());
+      allow list: if isVerifiedUser() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if isVerifiedUser() &&
+        isValidId(itemId) &&
+        isValidContentItem(incoming()) &&
+        incoming().id == itemId &&
+        incoming().createdAt == request.time;
+      allow update: if isVerifiedUser() &&
+        isValidId(itemId) &&
+        isValidContentItem(incoming()) &&
+        (existing().ownerId == request.auth.uid || isAdmin()) &&
+        incoming().id == existing().id &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['category', 'prompt', 'answer', 'mediaUrl']);
+      allow delete: if isVerifiedUser() &&
+        isValidId(itemId) &&
+        (existing().ownerId == request.auth.uid || isAdmin());
+    }
+  }
+}

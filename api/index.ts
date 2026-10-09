@@ -815,6 +815,7 @@ export default async function handler(req: any, res: any) {
         break;
       }
       case 'minigame:backToBoard':
+        session.cards = createShuffledCards();
         session.stage = 'board';
         session.activeMiniGame = null;
         db.timerStartedAt = null;

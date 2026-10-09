@@ -992,6 +992,7 @@ export const GameSyncProvider: React.FC<{
             if (next.activeMiniGame?.audioPlaying) {
               audioCmd = { action: 'stop' };
             }
+            next.cards = createFallbackCards();
             next.stage = 'board';
             next.activeMiniGame = null;
             break;

@@ -932,10 +932,9 @@ async function startServer() {
         if (mg?.audioPlaying) {
           broadcastAudioEvent('stop');
         }
-        // Rule 4D.4: Automatically reset and shuffle the 3x3 clubs and countries whenever the host presses Back to Board from Football Tic-Tac-Toe
-        if (mg?.category === 'tictactoe') {
-          cachedTicTacToe = createFreshTicTacToeState(session.activeTeam);
-        }
+        // Reset covers and shuffle the 8 hidden sports categories whenever returning to board from any mini-game
+        session.cards = createShuffledCards();
+        cachedTicTacToe = createFreshTicTacToeState(session.activeTeam);
         session.stage = 'board';
         session.activeMiniGame = null;
         break;

@@ -520,7 +520,10 @@ const HostConsoleBody: React.FC = () => {
           {/* 4. ACTIVE MINI-GAME OPERATOR PANEL */}
           {mg && mg.category === 'tictactoe' && mg.ticTacToe ? (
             /* FOOTBALL TIC-TAC-TOE HOST OPERATOR CONTROLS */
-            <section className="bg-[#081326] border border-slate-800 rounded-2xl p-4 space-y-4">
+            <section
+              key={`host-ttt-${mg.cardNumber}`}
+              className="bg-[#081326] border border-slate-800 rounded-2xl p-4 space-y-4 animate-minigame-open"
+            >
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-bold font-['Outfit'] text-white">
                   Football Tic-Tac-Toe Controls
@@ -694,11 +697,25 @@ const HostConsoleBody: React.FC = () => {
                     <span>Reject & Pass Turn</span>
                   </button>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => sendHostAction('minigame:backToBoard')}
+                  className="w-full min-h-[48px] px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 font-bold text-xs flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap"
+                >
+                  <ArrowLeft className="w-4 h-4 shrink-0" />
+                  <span>Back to Board (Reset Covers & Shuffle Sports)</span>
+                </button>
               </div>
             </section>
           ) : (
             /* STANDARD MINI GAMES (IMAGE GUESSING, QUIZ, NUMBER, AUDIO) CONTROLS */
-            <section className="bg-[#081326] border border-slate-800 rounded-2xl p-4 space-y-4">
+            <section
+              key={`host-panel-${state.stage}-${mg?.cardNumber ?? 'board'}`}
+              className={`bg-[#081326] border border-slate-800 rounded-2xl p-4 space-y-4 ${
+                mg ? 'animate-minigame-open' : 'animate-board-return'
+              }`}
+            >
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-bold font-['Outfit'] text-white">
                   Mini-Game Content & Live Stage Controls

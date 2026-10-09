@@ -45,6 +45,7 @@ export function validateContentItemPayload(item: {
   prompt: string;
   answer: string;
   mediaUrl?: string;
+  blurAmount?: number;
   ownerId: string;
 }) {
   if (!ID_PATTERN_REGEX.test(item.id) || item.id.length > MAX_ID_LENGTH) {
@@ -61,6 +62,12 @@ export function validateContentItemPayload(item: {
   }
   if (item.mediaUrl !== undefined && item.mediaUrl.length > MAX_MEDIA_URL_LENGTH) {
     throw new Error('ContentItem mediaUrl exceeds maximum length of 1000 characters');
+  }
+  if (
+    item.blurAmount !== undefined &&
+    (typeof item.blurAmount !== 'number' || item.blurAmount < 0 || item.blurAmount > 60)
+  ) {
+    throw new Error('ContentItem blurAmount must be between 0 and 60');
   }
   if (!ID_PATTERN_REGEX.test(item.ownerId) || item.ownerId.length > MAX_ID_LENGTH) {
     throw new Error('Invalid ownerId format or length');
@@ -94,6 +101,10 @@ export async function createContentItemInFirestore(item: ContentItem): Promise<v
   const promptText = (item.prompt || item.title || 'Clue').trim().slice(0, MAX_PROMPT_LENGTH);
   const answerText = (item.answer || 'Answer').trim().slice(0, MAX_ANSWER_LENGTH);
   const mediaUrlText = item.mediaUrl ? item.mediaUrl.trim().slice(0, MAX_MEDIA_URL_LENGTH) : '';
+  const blurVal =
+    typeof item.blurAmount === 'number' && !Number.isNaN(item.blurAmount)
+      ? Math.max(0, Math.min(60, item.blurAmount))
+      : 28;
 
   validateContentItemPayload({
     id: safeId,
@@ -101,6 +112,7 @@ export async function createContentItemInFirestore(item: ContentItem): Promise<v
     prompt: promptText,
     answer: answerText,
     mediaUrl: mediaUrlText,
+    blurAmount: blurVal,
     ownerId,
   });
 
@@ -112,6 +124,7 @@ export async function createContentItemInFirestore(item: ContentItem): Promise<v
       prompt: promptText,
       answer: answerText,
       mediaUrl: mediaUrlText,
+      blurAmount: blurVal,
       ownerId,
       createdAt: serverTimestamp(),
     });
@@ -125,7 +138,7 @@ export async function createContentItemInFirestore(item: ContentItem): Promise<v
  */
 export async function updateContentItemInFirestore(
   itemId: string,
-  updates: Partial<Pick<ContentItem, 'category' | 'prompt' | 'answer' | 'mediaUrl'>>
+  updates: Partial<Pick<ContentItem, 'category' | 'prompt' | 'answer' | 'mediaUrl' | 'blurAmount'>>
 ): Promise<void> {
   const currentUser = auth.currentUser;
   if (!currentUser || !currentUser.emailVerified) return;
@@ -145,6 +158,9 @@ export async function updateContentItemInFirestore(
   }
   if (updates.mediaUrl !== undefined) {
     payload.mediaUrl = updates.mediaUrl ? updates.mediaUrl.trim().slice(0, MAX_MEDIA_URL_LENGTH) : '';
+  }
+  if (updates.blurAmount !== undefined && !Number.isNaN(Number(updates.blurAmount))) {
+    payload.blurAmount = Math.max(0, Math.min(60, Number(updates.blurAmount)));
   }
 
   try {
@@ -174,6 +190,7 @@ export async function getContentItemFromFirestore(itemId: string): Promise<Conte
       prompt: data.prompt,
       answer: data.answer,
       mediaUrl: data.mediaUrl || undefined,
+      blurAmount: typeof data.blurAmount === 'number' ? data.blurAmount : 28,
       createdAt:
         data.createdAt?.toDate?.()?.toISOString?.() || new Date().toISOString(),
     };
@@ -206,6 +223,7 @@ export async function listOwnerContentItemsFromFirestore(): Promise<ContentItem[
         prompt: data.prompt,
         answer: data.answer,
         mediaUrl: data.mediaUrl || undefined,
+        blurAmount: typeof data.blurAmount === 'number' ? data.blurAmount : 28,
         createdAt:
           data.createdAt?.toDate?.()?.toISOString?.() || new Date().toISOString(),
       };
@@ -243,6 +261,7 @@ export function subscribeToOwnerContentItems(
           prompt: data.prompt,
           answer: data.answer,
           mediaUrl: data.mediaUrl || undefined,
+          blurAmount: typeof data.blurAmount === 'number' ? data.blurAmount : 28,
           createdAt:
             data.createdAt?.toDate?.()?.toISOString?.() || new Date().toISOString(),
         };

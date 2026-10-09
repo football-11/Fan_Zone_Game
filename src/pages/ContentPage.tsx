@@ -32,6 +32,8 @@ const ContentManagerBody: React.FC = () => {
   const [prompt, setPrompt] = useState('');
   const [answer, setAnswer] = useState('');
   const [mediaUrl, setMediaUrl] = useState('');
+  const [blurAmount, setBlurAmount] = useState<number>(28);
+  const [previewBlurred, setPreviewBlurred] = useState<boolean>(true);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -42,6 +44,8 @@ const ContentManagerBody: React.FC = () => {
   const [editPrompt, setEditPrompt] = useState('');
   const [editAnswer, setEditAnswer] = useState('');
   const [editMediaUrl, setEditMediaUrl] = useState('');
+  const [editBlurAmount, setEditBlurAmount] = useState<number>(28);
+  const [editPreviewBlurred, setEditPreviewBlurred] = useState<boolean>(true);
 
   // Delete Confirmation State
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -133,11 +137,14 @@ const ContentManagerBody: React.FC = () => {
         prompt: prompt.trim() || title.trim() || `Identify this ${currentTabConfig.label} clue!`,
         answer: answer.trim(),
         mediaUrl: mediaUrl.trim() || undefined,
+        blurAmount: currentTabConfig.mediaType === 'image' ? blurAmount : undefined,
       });
       setTitle('');
       setPrompt('');
       setAnswer('');
       setMediaUrl('');
+      setBlurAmount(28);
+      setPreviewBlurred(true);
     } finally {
       setSaving(false);
     }
@@ -149,6 +156,8 @@ const ContentManagerBody: React.FC = () => {
     setEditPrompt(item.prompt);
     setEditAnswer(item.answer);
     setEditMediaUrl(item.mediaUrl || '');
+    setEditBlurAmount(typeof item.blurAmount === 'number' ? item.blurAmount : 28);
+    setEditPreviewBlurred(true);
   };
 
   const handleSaveEdit = async (id: string) => {
@@ -158,6 +167,7 @@ const ContentManagerBody: React.FC = () => {
       prompt: editPrompt.trim(),
       answer: editAnswer.trim(),
       mediaUrl: editMediaUrl.trim() || undefined,
+      blurAmount: currentTabConfig.mediaType === 'image' ? editBlurAmount : undefined,
     });
     setEditingId(null);
   };
@@ -325,15 +335,98 @@ const ContentManagerBody: React.FC = () => {
                     />
                   </div>
 
-                  {/* Instant Preview */}
-                  {mediaUrl && currentTabConfig.mediaType === 'image' && (
-                    <div className="mt-2 p-2 rounded-xl bg-[#030914] border border-slate-800 flex items-center justify-center h-36">
-                      <img
-                        src={mediaUrl}
-                        alt="Upload preview"
-                        referrerPolicy="no-referrer"
-                        className="max-h-full max-w-full object-contain rounded-lg"
+                  {/* Mystery Blur Control & Live Preview for All Image Guess Games */}
+                  {currentTabConfig.mediaType === 'image' && (
+                    <div className="mt-3 p-3.5 rounded-xl bg-[#030914] border border-slate-800 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <label className="block text-xs font-bold text-amber-400">
+                            Mystery Blur Control (Studio Starting Blur)
+                          </label>
+                          <p className="text-[11px] text-slate-400">
+                            Adjust how blurred this photo appears on /studio before reveal
+                          </p>
+                        </div>
+                        <span className="font-['JetBrains_Mono'] font-bold text-xs px-2.5 py-1 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-300 tabular-nums">
+                          {blurAmount}px
+                        </span>
+                      </div>
+
+                      <input
+                        type="range"
+                        min={0}
+                        max={60}
+                        step={2}
+                        value={blurAmount}
+                        onChange={(e) => setBlurAmount(Number(e.target.value))}
+                        className="w-full accent-[#F59E0B] cursor-pointer"
                       />
+
+                      <div className="flex flex-wrap items-center justify-between gap-1.5">
+                        {[
+                          { label: 'Clear (0px)', val: 0 },
+                          { label: 'Light (12px)', val: 12 },
+                          { label: 'Medium (20px)', val: 20 },
+                          { label: 'Default (28px)', val: 28 },
+                          { label: 'Heavy (40px)', val: 40 },
+                          { label: 'Extreme (52px)', val: 52 },
+                        ].map((preset) => (
+                          <button
+                            key={preset.val}
+                            type="button"
+                            onClick={() => setBlurAmount(preset.val)}
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer ${
+                              blurAmount === preset.val
+                                ? 'bg-[#F59E0B] text-slate-950 font-bold'
+                                : 'bg-[#081326] border border-slate-700 text-slate-300 hover:border-amber-400/50'
+                            }`}
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="space-y-2 pt-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-semibold text-slate-400">
+                            {mediaUrl
+                              ? 'Live Broadcast Blur Preview (Uploaded Photo):'
+                              : 'Live Broadcast Blur Preview (Sample Reference):'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setPreviewBlurred((prev) => !prev)}
+                            className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-[11px] font-semibold text-sky-300 cursor-pointer"
+                          >
+                            {previewBlurred
+                              ? `Showing Blurred (${blurAmount}px) · Tap to Test Reveal`
+                              : 'Showing Revealed (0px) · Tap to Test Blur'}
+                          </button>
+                        </div>
+                        <div className="relative p-3 rounded-xl bg-[#081326] border border-slate-800 flex items-center justify-center h-44 overflow-hidden">
+                          <img
+                            src={
+                              mediaUrl ||
+                              (activeTab === 'jersey'
+                                ? '/samples/sample_jersey_kit.jpg'
+                                : activeTab === 'photo'
+                                ? '/samples/sample_player_action.jpg'
+                                : activeTab === 'stadium'
+                                ? '/samples/sample_stadium_night.jpg'
+                                : '/samples/sample_club_crest.jpg')
+                            }
+                            alt="Upload preview"
+                            referrerPolicy="no-referrer"
+                            style={{
+                              filter: `blur(${previewBlurred ? blurAmount : 0}px)`,
+                            }}
+                            className="max-h-full max-w-full object-contain rounded-lg transition-all duration-300"
+                          />
+                          <span className="pointer-events-none absolute bottom-2 right-2 px-2 py-0.5 rounded bg-black/70 border border-white/15 text-[10px] font-['JetBrains_Mono'] text-amber-300">
+                            {previewBlurred ? `BLUR ${blurAmount}px` : 'UNBLURRED 0px'}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   )}
 
@@ -462,31 +555,72 @@ const ContentManagerBody: React.FC = () => {
                         </div>
 
                         {currentTabConfig.mediaType !== 'none' && (
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="text"
-                              value={editMediaUrl}
-                              onChange={(e) => setEditMediaUrl(e.target.value)}
-                              placeholder="Media URL"
-                              className="flex-1 min-h-[44px] px-3 py-2 rounded-lg bg-[#081326] border border-slate-700 text-xs text-slate-300"
-                            />
-                            <label className="min-h-[44px] px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-amber-300 flex items-center gap-1.5 cursor-pointer whitespace-nowrap">
-                              <Upload className="w-3.5 h-3.5" />
-                              <span>Replace File</span>
+                          <div className="space-y-3">
+                            <div className="flex items-center gap-2">
                               <input
-                                type="file"
-                                accept={
-                                  currentTabConfig.mediaType === 'image'
-                                    ? 'image/*'
-                                    : 'audio/*,.mp3,.wav,.ogg,.m4a'
-                                }
-                                onChange={(e) => {
-                                  const f = e.target.files?.[0];
-                                  if (f) handleFileUpload(f, true);
-                                }}
-                                className="hidden"
+                                type="text"
+                                value={editMediaUrl}
+                                onChange={(e) => setEditMediaUrl(e.target.value)}
+                                placeholder="Media URL"
+                                className="flex-1 min-h-[44px] px-3 py-2 rounded-lg bg-[#081326] border border-slate-700 text-xs text-slate-300"
                               />
-                            </label>
+                              <label className="min-h-[44px] px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-amber-300 flex items-center gap-1.5 cursor-pointer whitespace-nowrap">
+                                <Upload className="w-3.5 h-3.5" />
+                                <span>Replace File</span>
+                                <input
+                                  type="file"
+                                  accept={
+                                    currentTabConfig.mediaType === 'image'
+                                      ? 'image/*'
+                                      : 'audio/*,.mp3,.wav,.ogg,.m4a'
+                                  }
+                                  onChange={(e) => {
+                                    const f = e.target.files?.[0];
+                                    if (f) handleFileUpload(f, true);
+                                  }}
+                                  className="hidden"
+                                />
+                              </label>
+                            </div>
+
+                            {currentTabConfig.mediaType === 'image' && (
+                              <div className="p-3 rounded-xl bg-[#081326] border border-slate-700 space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs font-bold text-amber-400">
+                                    Mystery Blur Intensity: {editBlurAmount}px
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditPreviewBlurred((p) => !p)}
+                                    className="px-2.5 py-1 rounded bg-slate-900 border border-slate-700 text-[11px] font-semibold text-sky-300 cursor-pointer"
+                                  >
+                                    {editPreviewBlurred ? 'Test Unblurred' : 'Test Blurred'}
+                                  </button>
+                                </div>
+                                <input
+                                  type="range"
+                                  min={0}
+                                  max={60}
+                                  step={2}
+                                  value={editBlurAmount}
+                                  onChange={(e) => setEditBlurAmount(Number(e.target.value))}
+                                  className="w-full accent-[#F59E0B] cursor-pointer"
+                                />
+                                {editMediaUrl && (
+                                  <div className="relative h-32 rounded-lg bg-[#030914] border border-slate-800 flex items-center justify-center overflow-hidden p-2">
+                                    <img
+                                      src={editMediaUrl}
+                                      alt="Edit blur preview"
+                                      referrerPolicy="no-referrer"
+                                      style={{
+                                        filter: `blur(${editPreviewBlurred ? editBlurAmount : 0}px)`,
+                                      }}
+                                      className="max-h-full max-w-full object-contain transition-all duration-300"
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                         )}
 
@@ -539,9 +673,40 @@ const ContentManagerBody: React.FC = () => {
                               {item.title}
                             </h3>
                             <p className="text-xs text-slate-300 mt-0.5">{item.prompt}</p>
-                            <p className="text-xs font-bold text-emerald-400 mt-1">
-                              Answer: {item.answer}
-                            </p>
+                            <div className="flex items-center gap-2 flex-wrap mt-1">
+                              <p className="text-xs font-bold text-emerald-400">
+                                Answer: {item.answer}
+                              </p>
+                              {currentTabConfig.mediaType === 'image' && (
+                                <span className="text-[11px] font-['JetBrains_Mono'] font-semibold px-2 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-300">
+                                  Blur: {item.blurAmount ?? 28}px
+                                </span>
+                              )}
+                            </div>
+
+                            {currentTabConfig.mediaType === 'image' && (
+                              <div className="mt-2 flex flex-wrap items-center gap-2 bg-[#081326] border border-slate-800 rounded-lg px-2.5 py-1.5 max-w-md">
+                                <span className="text-[11px] font-semibold text-amber-300 whitespace-nowrap">
+                                  Blur Control:
+                                </span>
+                                <input
+                                  type="range"
+                                  min={0}
+                                  max={60}
+                                  step={2}
+                                  value={item.blurAmount ?? 28}
+                                  onChange={(e) =>
+                                    updateContentItem(item.id, {
+                                      blurAmount: Number(e.target.value),
+                                    })
+                                  }
+                                  className="flex-1 min-w-[100px] accent-[#F59E0B] cursor-pointer"
+                                />
+                                <span className="font-['JetBrains_Mono'] text-[11px] font-bold text-amber-400 tabular-nums w-9 text-right">
+                                  {item.blurAmount ?? 28}px
+                                </span>
+                              </div>
+                            )}
 
                             {currentTabConfig.mediaType === 'audio' && item.mediaUrl && (
                               <audio

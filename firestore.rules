@@ -46,12 +46,13 @@ service cloud.firestore {
 
     function isValidContentItem(data) {
       return data.keys().hasAll(['id', 'category', 'prompt', 'answer', 'ownerId', 'createdAt']) &&
-        data.keys().hasOnly(['id', 'category', 'prompt', 'answer', 'mediaUrl', 'ownerId', 'createdAt']) &&
+        data.keys().hasOnly(['id', 'category', 'prompt', 'answer', 'mediaUrl', 'blurAmount', 'ownerId', 'createdAt']) &&
         isValidId(data.id) &&
         isValidCategory(data.category) &&
         data.prompt is string && data.prompt.size() >= 1 && data.prompt.size() <= 500 &&
         data.answer is string && data.answer.size() >= 1 && data.answer.size() <= 300 &&
         (!('mediaUrl' in data) || (data.mediaUrl is string && data.mediaUrl.size() <= 1000)) &&
+        (!('blurAmount' in data) || (data.blurAmount is number && data.blurAmount >= 0 && data.blurAmount <= 60)) &&
         isValidId(data.ownerId) &&
         data.ownerId == request.auth.uid &&
         data.createdAt is timestamp;
@@ -72,7 +73,7 @@ service cloud.firestore {
         incoming().id == existing().id &&
         incoming().ownerId == existing().ownerId &&
         incoming().createdAt == existing().createdAt &&
-        incoming().diff(existing()).affectedKeys().hasOnly(['category', 'prompt', 'answer', 'mediaUrl']);
+        incoming().diff(existing()).affectedKeys().hasOnly(['category', 'prompt', 'answer', 'mediaUrl', 'blurAmount']);
       allow delete: if isVerifiedUser() &&
         isValidId(itemId) &&
         (existing().ownerId == request.auth.uid || isAdmin());

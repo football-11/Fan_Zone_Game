@@ -34,6 +34,10 @@
           "description": "URL path to uploaded or sample image/audio asset",
           "maxLength": 1000
         },
+        "blurAmount": {
+          "type": "number",
+          "description": "Starting mystery blur intensity in pixels (0 to 60) for image guess games"
+        },
         "ownerId": {
           "type": "string",
           "description": "UID of the authenticated broadcast owner",

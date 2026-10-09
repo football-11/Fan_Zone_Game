@@ -42,6 +42,7 @@ interface GameSyncContextValue {
     prompt: string;
     answer: string;
     mediaUrl?: string;
+    blurAmount?: number;
   }) => Promise<void>;
   updateContentItem: (
     id: string,
@@ -50,6 +51,7 @@ interface GameSyncContextValue {
       prompt?: string;
       answer?: string;
       mediaUrl?: string;
+      blurAmount?: number;
     }
   ) => Promise<void>;
   deleteContentItem: (id: string) => Promise<void>;
@@ -860,6 +862,7 @@ export const GameSyncProvider: React.FC<{
                       prompt: chosen.prompt,
                       answer: chosen.answer,
                       mediaUrl: chosen.mediaUrl,
+                      blurAmount: typeof chosen.blurAmount === 'number' ? chosen.blurAmount : 28,
                     }
                   : {
                       itemId: 'fallback',
@@ -867,6 +870,7 @@ export const GameSyncProvider: React.FC<{
                       title: card.categoryTitle,
                       prompt: card.categoryTitle,
                       answer: 'Official Answer',
+                      blurAmount: 28,
                     },
                 timerSeconds: 30,
                 timerRunning: false,
@@ -913,6 +917,8 @@ export const GameSyncProvider: React.FC<{
               (payload.itemId && catItems.find((i) => i.id === payload.itemId)) || catItems[0];
             if (chosen || mg.snapshot) {
               const baseSnap = chosen || mg.snapshot!;
+              const customBlur =
+                payload.blurAmount !== undefined ? Number(payload.blurAmount) : undefined;
               mg.snapshot = {
                 itemId: baseSnap.id || (baseSnap as any).itemId || 'custom',
                 category: mg.category as ContentCategory,
@@ -920,12 +926,26 @@ export const GameSyncProvider: React.FC<{
                 prompt: payload.prompt?.trim() || baseSnap.prompt,
                 answer: payload.answer?.trim() || baseSnap.answer,
                 mediaUrl: baseSnap.mediaUrl,
+                blurAmount:
+                  customBlur !== undefined && !Number.isNaN(customBlur)
+                    ? Math.max(0, Math.min(60, customBlur))
+                    : baseSnap.blurAmount ?? 28,
               };
               mg.timerSeconds = 30;
               mg.timerRunning = false;
               mg.answerRevealed = false;
               mg.imageUnblurred = false;
               mg.audioPlaying = false;
+            }
+            break;
+          }
+
+          case 'minigame:setBlur': {
+            const mg = next.activeMiniGame;
+            if (!mg || !mg.snapshot) break;
+            const nextBlur = Number(payload.blurAmount);
+            if (!Number.isNaN(nextBlur)) {
+              mg.snapshot.blurAmount = Math.max(0, Math.min(60, nextBlur));
             }
             break;
           }
@@ -1183,8 +1203,13 @@ export const GameSyncProvider: React.FC<{
     prompt: string;
     answer: string;
     mediaUrl?: string;
+    blurAmount?: number;
   }) => {
     if (!ownerAuth.token) return;
+    const parsedBlur =
+      itemInput.blurAmount !== undefined && !Number.isNaN(Number(itemInput.blurAmount))
+        ? Math.max(0, Math.min(60, Number(itemInput.blurAmount)))
+        : 28;
     const optimisticItem: ContentItem = {
       id: `item_${itemInput.category}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       category: itemInput.category,
@@ -1192,6 +1217,7 @@ export const GameSyncProvider: React.FC<{
       prompt: itemInput.prompt,
       answer: itemInput.answer,
       mediaUrl: itemInput.mediaUrl,
+      blurAmount: parsedBlur,
       createdAt: new Date().toISOString(),
     };
 
@@ -1233,6 +1259,7 @@ export const GameSyncProvider: React.FC<{
       prompt?: string;
       answer?: string;
       mediaUrl?: string;
+      blurAmount?: number;
     }
   ) => {
     if (!ownerAuth.token) return;
@@ -1244,6 +1271,10 @@ export const GameSyncProvider: React.FC<{
             prompt: updates.prompt !== undefined ? updates.prompt : item.prompt,
             answer: updates.answer !== undefined ? updates.answer : item.answer,
             mediaUrl: updates.mediaUrl !== undefined ? updates.mediaUrl : item.mediaUrl,
+            blurAmount:
+              updates.blurAmount !== undefined
+                ? Math.max(0, Math.min(60, Number(updates.blurAmount)))
+                : item.blurAmount ?? 28,
             updatedAt: new Date().toISOString(),
           }
         : item

@@ -788,18 +788,28 @@ export const StudioStageView: React.FC<{
                             alt={mg.snapshot.title || 'Broadcast Mystery Image'}
                             referrerPolicy="no-referrer"
                             onError={() => setImgFailed(true)}
+                            style={{
+                              filter:
+                                mg.imageUnblurred || mg.answerRevealed
+                                  ? 'blur(0px)'
+                                  : `blur(${mg.snapshot.blurAmount ?? 28}px)`,
+                            }}
                             className={`max-h-full max-w-full object-contain transition-all duration-700 ${
                               mg.imageUnblurred || mg.answerRevealed
-                                ? 'blur-0 scale-100'
-                                : 'blur-[28px] scale-105'
+                                ? 'scale-100'
+                                : 'scale-105'
                             }`}
                           />
                         ) : (
                           /* Zero-Broken-Image Styled Fallback Container */
                           <div
-                            className={`flex flex-col items-center justify-center text-center p-6 transition-all duration-700 ${
-                              mg.imageUnblurred || mg.answerRevealed ? 'blur-0' : 'blur-[28px]'
-                            }`}
+                            style={{
+                              filter:
+                                mg.imageUnblurred || mg.answerRevealed
+                                  ? 'blur(0px)'
+                                  : `blur(${mg.snapshot?.blurAmount ?? 28}px)`,
+                            }}
+                            className="flex flex-col items-center justify-center text-center p-6 transition-all duration-700"
                           >
                             <CategoryBadgeArtwork
                               category={mg.category}
@@ -812,11 +822,13 @@ export const StudioStageView: React.FC<{
                         )}
 
                         {/* Mystery Blur Status Watermark Overlay when Blurred */}
-                        {!mg.imageUnblurred && !mg.answerRevealed && (
-                          <div className="pointer-events-none absolute bottom-3 right-4 px-3 py-1 rounded-lg bg-black/65 border border-white/15 text-xs font-['Plus_Jakarta_Sans'] font-semibold text-amber-300">
-                            MYSTERY BLUR ACTIVE
-                          </div>
-                        )}
+                        {!mg.imageUnblurred &&
+                          !mg.answerRevealed &&
+                          (mg.snapshot?.blurAmount ?? 28) > 0 && (
+                            <div className="pointer-events-none absolute bottom-3 right-4 px-3 py-1 rounded-lg bg-black/65 border border-white/15 text-xs font-['Plus_Jakarta_Sans'] font-semibold text-amber-300">
+                              MYSTERY BLUR ACTIVE ({mg.snapshot?.blurAmount ?? 28}px)
+                            </div>
+                          )}
                       </div>
 
                       {mg.snapshot?.prompt && (

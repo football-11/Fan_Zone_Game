@@ -29,6 +29,7 @@ export interface ContentItem {
   prompt: string;
   answer: string;
   mediaUrl?: string;
+  blurAmount?: number;
   createdAt: string;
   updatedAt?: string;
 }
@@ -52,6 +53,7 @@ export interface ActiveRoundSnapshot {
   prompt: string;
   answer?: string; // Stripped for /studio until answerRevealed === true
   mediaUrl?: string;
+  blurAmount?: number;
 }
 
 export interface TicTacToeClub {

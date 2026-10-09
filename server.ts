@@ -686,6 +686,7 @@ async function startServer() {
       prompt: chosen.prompt,
       answer: chosen.answer,
       mediaUrl: chosen.mediaUrl,
+      blurAmount: typeof chosen.blurAmount === 'number' ? chosen.blurAmount : 28,
     };
   }
 
@@ -841,6 +842,8 @@ async function startServer() {
         const customPrompt = payload.prompt as string | undefined;
         const customAnswer = payload.answer as string | undefined;
         const customTitle = payload.title as string | undefined;
+        const customBlur =
+          payload.blurAmount !== undefined ? Number(payload.blurAmount) : undefined;
 
         const baseSnapshot = createSnapshotForCategory(mg.category, itemId);
         if (baseSnapshot) {
@@ -849,12 +852,26 @@ async function startServer() {
             title: customTitle !== undefined && customTitle.trim() ? customTitle.trim() : baseSnapshot.title,
             prompt: customPrompt !== undefined && customPrompt.trim() ? customPrompt.trim() : baseSnapshot.prompt,
             answer: customAnswer !== undefined && customAnswer.trim() ? customAnswer.trim() : baseSnapshot.answer,
+            blurAmount:
+              customBlur !== undefined && !Number.isNaN(customBlur)
+                ? Math.max(0, Math.min(60, customBlur))
+                : baseSnapshot.blurAmount ?? 28,
           };
           mg.timerSeconds = 30;
           mg.timerRunning = false;
           mg.answerRevealed = false;
           mg.imageUnblurred = false;
           mg.audioPlaying = false;
+        }
+        break;
+      }
+
+      case 'minigame:setBlur': {
+        const mg = session.activeMiniGame;
+        if (!mg || !mg.snapshot) break;
+        const nextBlur = Number(payload.blurAmount);
+        if (!Number.isNaN(nextBlur)) {
+          mg.snapshot.blurAmount = Math.max(0, Math.min(60, nextBlur));
         }
         break;
       }
@@ -1224,10 +1241,14 @@ async function startServer() {
     if (!isAuthorizedRequest(req)) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
-    const { category, title, prompt, answer, mediaUrl } = req.body || {};
+    const { category, title, prompt, answer, mediaUrl, blurAmount } = req.body || {};
     if (!category || !answer) {
       return res.status(400).json({ error: 'Category and answer are required' });
     }
+    const parsedBlur =
+      blurAmount !== undefined && !Number.isNaN(Number(blurAmount))
+        ? Math.max(0, Math.min(60, Number(blurAmount)))
+        : 28;
     const newItem: ContentItem = {
       id: `item_${category}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       category,
@@ -1235,6 +1256,7 @@ async function startServer() {
       prompt: String(prompt || title || 'Identify this football clue!').trim(),
       answer: String(answer).trim(),
       mediaUrl: mediaUrl ? String(mediaUrl).trim() : undefined,
+      blurAmount: parsedBlur,
       createdAt: new Date().toISOString(),
     };
     dbState.contentItems.unshift(newItem);
@@ -1252,13 +1274,18 @@ async function startServer() {
       return res.status(404).json({ error: 'Content item not found' });
     }
     const existing = dbState.contentItems[idx];
-    const { title, prompt, answer, mediaUrl } = req.body || {};
+    const { title, prompt, answer, mediaUrl, blurAmount } = req.body || {};
+    const parsedBlur =
+      blurAmount !== undefined && !Number.isNaN(Number(blurAmount))
+        ? Math.max(0, Math.min(60, Number(blurAmount)))
+        : existing.blurAmount ?? 28;
     const updated: ContentItem = {
       ...existing,
       title: title !== undefined ? String(title).trim() : existing.title,
       prompt: prompt !== undefined ? String(prompt).trim() : existing.prompt,
       answer: answer !== undefined ? String(answer).trim() : existing.answer,
       mediaUrl: mediaUrl !== undefined ? (mediaUrl ? String(mediaUrl).trim() : undefined) : existing.mediaUrl,
+      blurAmount: parsedBlur,
       updatedAt: new Date().toISOString(),
     };
     dbState.contentItems[idx] = updated;

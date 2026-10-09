@@ -32,6 +32,7 @@ const HostConsoleBody: React.FC = () => {
   const [inlineTitle, setInlineTitle] = useState<string>('');
   const [inlinePrompt, setInlinePrompt] = useState<string>('');
   const [inlineAnswer, setInlineAnswer] = useState<string>('');
+  const [inlineBlurAmount, setInlineBlurAmount] = useState<number>(28);
   const [spokenPlayerName, setSpokenPlayerName] = useState<string>('');
 
   const mg = state?.activeMiniGame || null;
@@ -40,6 +41,11 @@ const HostConsoleBody: React.FC = () => {
 
   // Filter saved content items for the active mini-game or currently selected card category
   const activeCategory = mg ? mg.category : selectedCard?.category;
+  const isImageGuessCategory =
+    activeCategory === 'jersey' ||
+    activeCategory === 'photo' ||
+    activeCategory === 'stadium' ||
+    activeCategory === 'logo';
   const categoryItems: ContentItem[] =
     activeCategory && activeCategory !== 'tictactoe'
       ? contentItems.filter((item) => item.category === activeCategory)
@@ -52,12 +58,16 @@ const HostConsoleBody: React.FC = () => {
       setInlineTitle(mg.snapshot.title || '');
       setInlinePrompt(mg.snapshot.prompt || '');
       setInlineAnswer(mg.snapshot.answer || '');
+      setInlineBlurAmount(
+        typeof mg.snapshot.blurAmount === 'number' ? mg.snapshot.blurAmount : 28
+      );
     } else if (categoryItems.length > 0) {
       const first = categoryItems[0];
       setSelectedItemId(first.id);
       setInlineTitle(first.title);
       setInlinePrompt(first.prompt);
       setInlineAnswer(first.answer);
+      setInlineBlurAmount(typeof first.blurAmount === 'number' ? first.blurAmount : 28);
     }
   }, [mg?.cardNumber, mg?.snapshot?.itemId, activeCategory, contentItems.length]);
 
@@ -68,6 +78,11 @@ const HostConsoleBody: React.FC = () => {
       setInlineTitle(found.title);
       setInlinePrompt(found.prompt);
       setInlineAnswer(found.answer);
+      const nextBlur = typeof found.blurAmount === 'number' ? found.blurAmount : 28;
+      setInlineBlurAmount(nextBlur);
+      if (mg && isImageGuessCategory) {
+        sendHostAction('minigame:setBlur', { blurAmount: nextBlur });
+      }
     }
   };
 
@@ -77,6 +92,7 @@ const HostConsoleBody: React.FC = () => {
       title: inlineTitle,
       prompt: inlinePrompt,
       answer: inlineAnswer,
+      blurAmount: isImageGuessCategory ? inlineBlurAmount : undefined,
     });
   };
 
@@ -725,10 +741,67 @@ const HostConsoleBody: React.FC = () => {
                       {categoryItems.map((item) => (
                         <option key={item.id} value={item.id}>
                           {item.title} — [{item.answer}]
+                          {isImageGuessCategory ? ` (${item.blurAmount ?? 28}px blur)` : ''}
                         </option>
                       ))}
                     </select>
                   </div>
+
+                  {isImageGuessCategory && (
+                    <div className="p-2.5 rounded-xl bg-[#081326] border border-slate-700/80 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-amber-400">
+                          Mystery Blur Control (Live on /studio)
+                        </span>
+                        <span className="font-['JetBrains_Mono'] font-bold text-xs px-2 py-0.5 rounded bg-amber-500/15 border border-amber-500/40 text-amber-300 tabular-nums">
+                          {inlineBlurAmount}px
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={60}
+                        step={2}
+                        value={inlineBlurAmount}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          setInlineBlurAmount(val);
+                          if (mg) {
+                            sendHostAction('minigame:setBlur', { blurAmount: val });
+                          }
+                        }}
+                        className="w-full accent-[#F59E0B] cursor-pointer"
+                      />
+                      <div className="flex flex-wrap items-center justify-between gap-1">
+                        {[
+                          { label: '0px (Clear)', val: 0 },
+                          { label: '12px', val: 12 },
+                          { label: '20px', val: 20 },
+                          { label: '28px', val: 28 },
+                          { label: '40px', val: 40 },
+                          { label: '52px', val: 52 },
+                        ].map((preset) => (
+                          <button
+                            key={preset.val}
+                            type="button"
+                            onClick={() => {
+                              setInlineBlurAmount(preset.val);
+                              if (mg) {
+                                sendHostAction('minigame:setBlur', { blurAmount: preset.val });
+                              }
+                            }}
+                            className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
+                              inlineBlurAmount === preset.val
+                                ? 'bg-[#F59E0B] text-slate-950'
+                                : 'bg-[#030914] border border-slate-700 text-slate-300 hover:border-amber-400/50'
+                            }`}
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   <div>
                     <label className="block text-[11px] text-slate-400 mb-1">

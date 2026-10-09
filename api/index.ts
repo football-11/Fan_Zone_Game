@@ -28,6 +28,7 @@ interface ContentItem {
   prompt: string;
   answer: string;
   mediaUrl?: string;
+  blurAmount?: number;
   createdAt: string;
   updatedAt?: string;
 }
@@ -93,6 +94,7 @@ interface ActiveMiniGameState {
     prompt: string;
     answer?: string;
     mediaUrl?: string;
+    blurAmount?: number;
   } | null;
   timerSeconds: number;
   timerRunning: boolean;
@@ -688,6 +690,7 @@ export default async function handler(req: any, res: any) {
                   prompt: chosen.prompt,
                   answer: chosen.answer,
                   mediaUrl: chosen.mediaUrl,
+                  blurAmount: typeof chosen.blurAmount === 'number' ? chosen.blurAmount : 28,
                 }
               : {
                   itemId: 'fallback',
@@ -695,6 +698,7 @@ export default async function handler(req: any, res: any) {
                   title: card.categoryTitle,
                   prompt: `Identify this ${card.categoryTitle}!`,
                   answer: 'Official Answer',
+                  blurAmount: 28,
                 },
             timerSeconds: 30,
             timerRunning: false,
@@ -740,6 +744,8 @@ export default async function handler(req: any, res: any) {
           (payload.itemId && categoryItems.find((i) => i.id === payload.itemId)) ||
           categoryItems[0];
         if (chosen) {
+          const customBlur =
+            payload.blurAmount !== undefined ? Number(payload.blurAmount) : undefined;
           mg.snapshot = {
             itemId: chosen.id,
             category: chosen.category,
@@ -747,6 +753,10 @@ export default async function handler(req: any, res: any) {
             prompt: payload.prompt?.trim() || chosen.prompt,
             answer: payload.answer?.trim() || chosen.answer,
             mediaUrl: chosen.mediaUrl,
+            blurAmount:
+              customBlur !== undefined && !Number.isNaN(customBlur)
+                ? Math.max(0, Math.min(60, customBlur))
+                : chosen.blurAmount ?? 28,
           };
           mg.timerSeconds = 30;
           mg.timerRunning = false;
@@ -755,6 +765,15 @@ export default async function handler(req: any, res: any) {
           mg.answerRevealed = false;
           mg.imageUnblurred = false;
           mg.audioPlaying = false;
+        }
+        break;
+      }
+      case 'minigame:setBlur': {
+        const mg = session.activeMiniGame;
+        if (!mg || !mg.snapshot) break;
+        const nextBlur = Number(payload.blurAmount);
+        if (!Number.isNaN(nextBlur)) {
+          mg.snapshot.blurAmount = Math.max(0, Math.min(60, nextBlur));
         }
         break;
       }
@@ -933,10 +952,14 @@ export default async function handler(req: any, res: any) {
     if (!isAuthorizedRequest(req)) return sendJson(res, 401, { error: 'Unauthorized' });
     const body = await parseJsonBody(req);
     const db = getDb();
-    const { category, title, prompt, answer, mediaUrl } = body || {};
+    const { category, title, prompt, answer, mediaUrl, blurAmount } = body || {};
     if (!category || !answer) {
       return sendJson(res, 400, { error: 'Category and answer are required' });
     }
+    const parsedBlur =
+      blurAmount !== undefined && !Number.isNaN(Number(blurAmount))
+        ? Math.max(0, Math.min(60, Number(blurAmount)))
+        : 28;
     const newItem: ContentItem = {
       id: `item_${category}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       category,
@@ -944,6 +967,7 @@ export default async function handler(req: any, res: any) {
       prompt: String(prompt || title || 'Identify this football clue!').trim(),
       answer: String(answer).trim(),
       mediaUrl: mediaUrl ? String(mediaUrl).trim() : undefined,
+      blurAmount: parsedBlur,
       createdAt: new Date().toISOString(),
     };
     db.contentItems.unshift(newItem);
@@ -962,7 +986,11 @@ export default async function handler(req: any, res: any) {
       const idx = db.contentItems.findIndex((i) => i.id === id);
       if (idx === -1) return sendJson(res, 404, { error: 'Not found' });
       const existing = db.contentItems[idx];
-      const { title, prompt, answer, mediaUrl } = body || {};
+      const { title, prompt, answer, mediaUrl, blurAmount } = body || {};
+      const parsedBlur =
+        blurAmount !== undefined && !Number.isNaN(Number(blurAmount))
+          ? Math.max(0, Math.min(60, Number(blurAmount)))
+          : existing.blurAmount ?? 28;
       db.contentItems[idx] = {
         ...existing,
         title: title !== undefined ? String(title).trim() : existing.title,
@@ -974,6 +1002,7 @@ export default async function handler(req: any, res: any) {
               ? String(mediaUrl).trim()
               : undefined
             : existing.mediaUrl,
+        blurAmount: parsedBlur,
         updatedAt: new Date().toISOString(),
       };
       saveDb(db);

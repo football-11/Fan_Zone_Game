@@ -284,62 +284,9 @@ const HostConsoleBody: React.FC = () => {
           </section>
         </div>
 
-        {/* RIGHT COLUMN (5 cols): Touch-Friendly Control Panels & Private Host Monitor */}
+        {/* RIGHT COLUMN (5 cols): Touch-Friendly Control Panels */}
         <div className="lg:col-span-5 flex flex-col gap-5">
-          {/* 1. PRIVATE HOST MONITOR (ALWAYS VISIBLE TO HOST) */}
-          <section className="bg-[#081326] border-2 border-emerald-500/50 rounded-2xl p-4 shadow-lg">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
-                Private Host Monitor (Hidden from /studio until revealed)
-              </span>
-              <span className="text-xs font-['JetBrains_Mono'] text-slate-400">
-                Card #{mg ? mg.cardNumber : selectedCard?.cardNumber}
-              </span>
-            </div>
-
-            {mg ? (
-              mg.category === 'tictactoe' && mg.ticTacToe ? (
-                <div className="mt-1">
-                  <div className="text-sm font-bold text-white">
-                    Square #{activeCellIndex + 1}: {activeCellClub?.name} ×{' '}
-                    {activeCellNation?.name}
-                  </div>
-                  <div className="text-xs text-emerald-300 mt-1">
-                    Valid Examples: {activeCellHints.join(', ')}
-                  </div>
-                </div>
-              ) : (
-                <div className="mt-1">
-                  <div className="text-xs text-slate-300">
-                    Clue: {mg.snapshot?.prompt || 'No prompt selected'}
-                  </div>
-                  <div className="mt-1.5 text-lg font-extrabold font-['Outfit'] text-emerald-300">
-                    Official Answer: {mg.snapshot?.answer || inlineAnswer || '—'}
-                  </div>
-                  <div className="mt-1 text-xs text-slate-400">
-                    Studio Status:{' '}
-                    {mg.answerRevealed
-                      ? 'REVEALED ON STUDIO SCREEN'
-                      : 'HIDDEN ON STUDIO SCREEN'}
-                  </div>
-                </div>
-              )
-            ) : (
-              <div className="mt-1">
-                <div className="text-sm font-bold text-white">
-                  Selected Card #{selectedCard?.cardNumber} ({selectedCard?.emojiLabel}) →{' '}
-                  <span className="text-amber-400">{selectedCard?.categoryTitle}</span>
-                </div>
-                {selectedCard?.category !== 'tictactoe' && (
-                  <div className="mt-1 text-sm font-bold font-['Outfit'] text-emerald-300">
-                    Next Item Answer: {inlineAnswer || categoryItems[0]?.answer || 'Ready'}
-                  </div>
-                )}
-              </div>
-            )}
-          </section>
-
-          {/* 2. RED TEAM & BLUE TEAM SCORE & TURN CONTROLS */}
+          {/* 1. RED TEAM & BLUE TEAM SCORE & TURN CONTROLS */}
           <section className="bg-[#081326] border border-slate-800 rounded-2xl p-4">
             <h2 className="text-sm font-bold font-['Outfit'] text-white mb-3">
               Team Turn & Manual Score Controls

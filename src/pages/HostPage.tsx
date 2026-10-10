@@ -616,7 +616,7 @@ const HostConsoleBody: React.FC = () => {
                     </span>
                     <span className="text-slate-500">×</span>
                     {activeCellNation && (
-                      <NationFlagArtwork nationId={activeCellNation.id} className="w-6 h-6" />
+                      <ClubCrestArtwork clubId={activeCellNation.id} className="w-6 h-6" />
                     )}
                     <span className="text-xs font-bold text-white">
                       {activeCellNation?.name}

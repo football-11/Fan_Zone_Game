@@ -508,8 +508,7 @@ export const StudioStageView: React.FC<{
                           isPreview ? 'text-[8px]' : 'text-xs lg:text-sm'
                         }`}
                       >
-                        Name a footballer who played for the column’s Club and represents the row’s
-                        Nation
+                        Name a footballer who played for both the column’s Club and the row’s Club
                       </p>
                     </div>
                   </div>
@@ -566,7 +565,7 @@ export const StudioStageView: React.FC<{
                         isPreview ? 'text-[8px]' : 'text-xs lg:text-sm'
                       }`}
                     >
-                      ↓ NATIONS
+                      ↓ CLUBS
                     </span>
                   </div>
 
@@ -592,13 +591,13 @@ export const StudioStageView: React.FC<{
                     </div>
                   ))}
 
-                  {/* 3 Rows: Nation Header + 3 Intersection Squares */}
-                  {mg.ticTacToe.nations.map((nation, rowIdx) => (
-                    <React.Fragment key={nation.id}>
-                      {/* Left Row Header: Nation Flag Emblem + Name */}
+                  {/* 3 Rows: Club Row Header + 3 Intersection Squares */}
+                  {mg.ticTacToe.nations.map((rowClub, rowIdx) => (
+                    <React.Fragment key={rowClub.id}>
+                      {/* Left Row Header: Club Crest Emblem + Name */}
                       <div className="rounded-xl bg-[#081326] border border-slate-700/80 flex items-center justify-center gap-3 px-3 py-2">
-                        <NationFlagArtwork
-                          nationId={nation.id}
+                        <ClubCrestArtwork
+                          clubId={rowClub.id}
                           className={
                             isPreview ? 'w-6 h-6 shrink-0' : 'w-12 h-12 lg:w-14 lg:h-14 shrink-0'
                           }
@@ -608,7 +607,7 @@ export const StudioStageView: React.FC<{
                             isPreview ? 'text-[9px]' : 'text-base lg:text-xl'
                           }`}
                         >
-                          {nation.name}
+                          {rowClub.name}
                         </span>
                       </div>
 

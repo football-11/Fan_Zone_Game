@@ -505,6 +505,52 @@ export const ClubCrestArtwork: React.FC<{ clubId: string; className?: string }> 
           <circle cx="49" cy="32" r="2.5" fill="#EF4444" />
         </svg>
       );
+    case 'man_united':
+      return (
+        <svg viewBox="0 0 64 64" className={className} fill="none">
+          <path
+            d="M14 14H50V35C50 47 32 56 32 56C32 56 14 47 14 35V14Z"
+            fill="#DC2626"
+            stroke="#FACC15"
+            strokeWidth="3.5"
+          />
+          <rect x="18" y="18" width="28" height="10" rx="2" fill="#FACC15" />
+          <path d="M22 23H42" stroke="#991B1B" strokeWidth="2.5" />
+          <circle cx="32" cy="39" r="8" fill="#FACC15" />
+          <path d="M29 36L32 32L35 36L32 45L29 36Z" fill="#DC2626" />
+        </svg>
+      );
+    case 'juventus':
+      return (
+        <svg viewBox="0 0 64 64" className={className} fill="none">
+          <ellipse cx="32" cy="32" rx="20" ry="26" fill="#090D16" stroke="#FACC15" strokeWidth="3.5" />
+          <path d="M22 10V54M30 8V56M38 10V54" stroke="#FFFFFF" strokeWidth="4.5" />
+          <rect x="20" y="25" width="24" height="12" rx="3" fill="#090D16" stroke="#FACC15" strokeWidth="1.5" />
+          <text x="32" y="34" textAnchor="middle" fill="#FFFFFF" fontWeight="900" fontSize="10" fontFamily="Outfit">
+            JUV
+          </text>
+        </svg>
+      );
+    case 'bayern':
+      return (
+        <svg viewBox="0 0 64 64" className={className} fill="none">
+          <circle cx="32" cy="32" r="25" fill="#DC2626" stroke="#FFFFFF" strokeWidth="3.5" />
+          <circle cx="32" cy="32" r="16" fill="#1D4ED8" stroke="#FFFFFF" strokeWidth="2.5" />
+          <polygon points="32,18 44,32 32,46 20,32" fill="#FFFFFF" />
+          <polygon points="32,22 40,32 32,42 24,32" fill="#38BDF8" />
+        </svg>
+      );
+    case 'inter_milan':
+      return (
+        <svg viewBox="0 0 64 64" className={className} fill="none">
+          <circle cx="32" cy="32" r="25" fill="#1E3A8A" stroke="#F59E0B" strokeWidth="3.5" />
+          <circle cx="32" cy="32" r="18" fill="#090D16" stroke="#38BDF8" strokeWidth="2.5" />
+          <path d="M22 18V46M29 15V49M36 15V49M43 18V46" stroke="#2563EB" strokeWidth="3.5" />
+          <text x="32" y="37" textAnchor="middle" fill="#FFFFFF" fontWeight="900" fontSize="14" fontFamily="Outfit">
+            IM
+          </text>
+        </svg>
+      );
     case 'ac_milan':
     default:
       return (

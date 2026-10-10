@@ -70,67 +70,66 @@ const CLUB_POOL: TicTacToeClub[] = [
   { id: 'psg', name: 'Paris Saint-Germain', shortName: 'PSG' },
   { id: 'chelsea', name: 'Chelsea FC', shortName: 'CHE' },
   { id: 'ac_milan', name: 'AC Milan', shortName: 'MIL' },
+  { id: 'man_united', name: 'Manchester United', shortName: 'MUN' },
+  { id: 'juventus', name: 'Juventus FC', shortName: 'JUV' },
+  { id: 'bayern', name: 'Bayern Munich', shortName: 'BAY' },
+  { id: 'inter_milan', name: 'Inter Milan', shortName: 'INT' },
 ];
 
-const NATION_POOL: TicTacToeNation[] = [
-  { id: 'brazil', name: 'Brazil', code: 'BRA' },
-  { id: 'argentina', name: 'Argentina', code: 'ARG' },
-  { id: 'france', name: 'France', code: 'FRA' },
-  { id: 'england', name: 'England', code: 'ENG' },
-  { id: 'spain', name: 'Spain', code: 'ESP' },
-  { id: 'portugal', name: 'Portugal', code: 'POR' },
-];
+const CLUB_IDS = new Set(CLUB_POOL.map((c) => c.id));
 
-const TICTACTOE_HINTS: Record<string, Record<string, string[]>> = {
-  real_madrid: {
-    brazil: ['Vinícius Júnior', 'Ronaldo Nazário', 'Roberto Carlos', 'Kaká', 'Casemiro'],
-    argentina: ['Ángel Di María', 'Gonzalo Higuaín', 'Alfredo Di Stéfano'],
-    france: ['Zinedine Zidane', 'Karim Benzema', 'Kylian Mbappé'],
-    england: ['Jude Bellingham', 'David Beckham', 'Michael Owen'],
-    spain: ['Sergio Ramos', 'Iker Casillas', 'Raúl González', 'Xabi Alonso'],
-    portugal: ['Cristiano Ronaldo', 'Luís Figo', 'Pepe'],
-  },
-  barcelona: {
-    brazil: ['Ronaldinho', 'Neymar Jr', 'Rivaldo', 'Romário', 'Dani Alves'],
-    argentina: ['Lionel Messi', 'Diego Maradona', 'Javier Mascherano'],
-    france: ['Thierry Henry', 'Antoine Griezmann', 'Ousmane Dembélé'],
-    england: ['Gary Lineker', 'Marcus Rashford'],
-    spain: ['Xavi Hernández', 'Andrés Iniesta', 'Carles Puyol', 'Lamine Yamal'],
-    portugal: ['Luís Figo', 'Deco', 'João Cancelo'],
-  },
-  man_city: {
-    brazil: ['Ederson', 'Gabriel Jesus', 'Fernandinho', 'Robinho'],
-    argentina: ['Sergio Agüero', 'Julián Álvarez', 'Carlos Tevez'],
-    france: ['Patrick Vieira', 'Samir Nasri', 'Gaël Clichy'],
-    england: ['Phil Foden', 'Jack Grealish', 'Kyle Walker', 'John Stones'],
-    spain: ['Rodri', 'David Silva', 'Jesús Navas'],
-    portugal: ['Bernardo Silva', 'Rúben Dias', 'João Cancelo'],
-  },
-  psg: {
-    brazil: ['Neymar Jr', 'Ronaldinho', 'Thiago Silva', 'Marquinhos'],
-    argentina: ['Lionel Messi', 'Ángel Di María', 'Ezequiel Lavezzi'],
-    france: ['Kylian Mbappé', 'Ousmane Dembélé', 'Bradley Barcola'],
-    england: ['David Beckham'],
-    spain: ['Sergio Ramos', 'Marco Asensio', 'Fabián Ruiz'],
-    portugal: ['Vitinha', 'Nuno Mendes', 'Gonçalo Ramos', 'Pauleta'],
-  },
-  chelsea: {
-    brazil: ['Thiago Silva', 'Willian', 'Oscar', 'David Luiz'],
-    argentina: ['Enzo Fernández', 'Hernán Crespo', 'Gonzalo Higuaín'],
-    france: ['N’Golo Kanté', 'Didier Deschamps', 'Claude Makélélé', 'Olivier Giroud'],
-    england: ['Frank Lampard', 'John Terry', 'Cole Palmer', 'Reece James'],
-    spain: ['Cesc Fàbregas', 'Fernando Torres', 'Diego Costa', 'Juan Mata'],
-    portugal: ['Pedro Neto', 'João Félix', 'Ricardo Carvalho', 'Deco'],
-  },
-  ac_milan: {
-    brazil: ['Kaká', 'Ronaldinho', 'Cafu', 'Dida', 'Thiago Silva'],
-    argentina: ['Hernán Crespo', 'Gonzalo Higuaín', 'Fernando Redondo'],
-    france: ['Olivier Giroud', 'Mike Maignan', 'Theo Hernández', 'Marcel Desailly'],
-    england: ['David Beckham', 'Fikayo Tomori', 'Kyle Walker'],
-    spain: ['Álvaro Morata', 'Brahim Díaz', 'Suso'],
-    portugal: ['Rafael Leão', 'Rui Costa', 'João Félix'],
-  },
+const TICTACTOE_CLUB_PAIRS: Record<string, string[]> = {
+  'ac_milan|barcelona': ['Ronaldinho', 'Zlatan Ibrahimović', 'Rivaldo', 'Ronaldo Nazário', 'Patrick Kluivert', 'Gianluca Zambrotta'],
+  'ac_milan|bayern': ['Mark van Bommel', 'Mario Mandžukić', 'Pepe Reina', 'Jean-Pierre Papin'],
+  'ac_milan|chelsea': ['Thiago Silva', 'Olivier Giroud', 'Christian Pulisic', 'Fikayo Tomori', 'Andriy Shevchenko', 'Hernán Crespo'],
+  'ac_milan|inter_milan': ['Zlatan Ibrahimović', 'Andrea Pirlo', 'Ronaldo Nazário', 'Clarence Seedorf', 'Hernán Crespo', 'Hakan Çalhanoğlu'],
+  'ac_milan|juventus': ['Andrea Pirlo', 'Zlatan Ibrahimović', 'Roberto Baggio', 'Filippo Inzaghi', 'Leonardo Bonucci', 'Gonzalo Higuaín'],
+  'ac_milan|man_city': ['Robinho', 'Mario Balotelli', 'Kyle Walker', 'George Weah', 'Nigel de Jong', 'Patrick Vieira'],
+  'ac_milan|man_united': ['Zlatan Ibrahimović', 'David Beckham', 'Jaap Stam', 'Matteo Darmian', 'Diogo Dalot'],
+  'ac_milan|psg': ['Zlatan Ibrahimović', 'Thiago Silva', 'Ronaldinho', 'George Weah', 'David Beckham', 'Gianluigi Donnarumma'],
+  'ac_milan|real_madrid': ['Kaká', 'Ronaldo Nazário', 'Clarence Seedorf', 'David Beckham', 'Theo Hernández', 'Brahim Díaz'],
+  'barcelona|bayern': ['Robert Lewandowski', 'Thiago Alcântara', 'Arturo Vidal', 'Philippe Coutinho', 'João Cancelo', 'Mark van Bommel'],
+  'barcelona|chelsea': ['Cesc Fàbregas', 'Pedro', 'Deco', 'Samuel Eto’o', 'Pierre-Emerick Aubameyang', 'João Félix'],
+  'barcelona|inter_milan': ['Ronaldo Nazário', 'Zlatan Ibrahimović', 'Samuel Eto’o', 'Luís Figo', 'Alexis Sánchez', 'Arturo Vidal'],
+  'barcelona|juventus': ['Dani Alves', 'Zlatan Ibrahimović', 'Thierry Henry', 'Edgar Davids', 'Arturo Vidal', 'Miralem Pjanić'],
+  'barcelona|man_city': ['İlkay Gündoğan', 'Sergio Agüero', 'Yaya Touré', 'João Cancelo', 'Ferran Torres', 'Claudio Bravo'],
+  'barcelona|man_united': ['Zlatan Ibrahimović', 'Gerard Piqué', 'Alexis Sánchez', 'Henrik Larsson', 'Memphis Depay', 'Marcus Rashford'],
+  'barcelona|psg': ['Lionel Messi', 'Neymar Jr', 'Ronaldinho', 'Zlatan Ibrahimović', 'Ousmane Dembélé', 'Dani Alves'],
+  'barcelona|real_madrid': ['Luís Figo', 'Ronaldo Nazário', 'Samuel Eto’o', 'Michael Laudrup', 'Javier Saviola', 'Marcos Alonso'],
+  'bayern|chelsea': ['Arjen Robben', 'Michael Ballack', 'Claudio Pizarro', 'Kalidou Koulibaly'],
+  'bayern|inter_milan': ['Lothar Matthäus', 'Karl-Heinz Rummenigge', 'Lúcio', 'Ivan Perišić', 'Benjamin Pavard', 'Yann Sommer'],
+  'bayern|juventus': ['Arturo Vidal', 'Kingsley Coman', 'Matthijs de Ligt', 'Mario Mandžukić', 'Douglas Costa', 'João Cancelo'],
+  'bayern|man_city': ['Leroy Sané', 'João Cancelo', 'Jérôme Boateng', 'Martín Demichelis', 'Pepe Reina'],
+  'bayern|man_united': ['Bastian Schweinsteiger', 'Owen Hargreaves', 'Matthijs de Ligt', 'Noussair Mazraoui', 'Marcel Sabitzer'],
+  'bayern|psg': ['Kingsley Coman', 'Eric Maxim Choupo-Moting', 'Lucas Hernández', 'Juan Bernat', 'Renato Sanches'],
+  'bayern|real_madrid': ['Toni Kroos', 'Xabi Alonso', 'Arjen Robben', 'David Alaba', 'James Rodríguez', 'Zé Roberto'],
+  'chelsea|inter_milan': ['Romelu Lukaku', 'Samuel Eto’o', 'Hernán Crespo', 'Mateo Kovačić', 'Juan Sebastián Verón', 'Victor Moses'],
+  'chelsea|juventus': ['Gonzalo Higuaín', 'Álvaro Morata', 'Didier Deschamps', 'Juan Cuadrado', 'Nicolas Anelka', 'Denis Zakaria'],
+  'chelsea|man_city': ['Kevin De Bruyne', 'Raheem Sterling', 'Cole Palmer', 'Mateo Kovačić', 'Frank Lampard', 'Nicolas Anelka'],
+  'chelsea|man_united': ['Juan Mata', 'Nemanja Matić', 'Romelu Lukaku', 'Mason Mount', 'Jadon Sancho', 'Radamel Falcao'],
+  'chelsea|psg': ['Thiago Silva', 'Claude Makélélé', 'David Luiz', 'Christopher Nkunku', 'Nicolas Anelka'],
+  'chelsea|real_madrid': ['Eden Hazard', 'Thibaut Courtois', 'Antonio Rüdiger', 'Claude Makélélé', 'Mateo Kovačić', 'Ricardo Carvalho'],
+  'inter_milan|juventus': ['Zlatan Ibrahimović', 'Roberto Baggio', 'Andrea Pirlo', 'Patrick Vieira', 'Fabio Cannavaro', 'Edgar Davids'],
+  'inter_milan|man_city': ['Mario Balotelli', 'Edin Džeko', 'Patrick Vieira', 'Aleksandar Kolarov', 'Maicon'],
+  'inter_milan|man_united': ['Zlatan Ibrahimović', 'Romelu Lukaku', 'Alexis Sánchez', 'Nemanja Vidić', 'Ashley Young', 'André Onana'],
+  'inter_milan|psg': ['Zlatan Ibrahimović', 'Achraf Hakimi', 'Mauro Icardi', 'Milan Škriniar', 'Thiago Motta', 'Maxwell'],
+  'inter_milan|real_madrid': ['Ronaldo Nazário', 'Luís Figo', 'Wesley Sneijder', 'Roberto Carlos', 'Achraf Hakimi', 'Mateo Kovačić'],
+  'juventus|man_city': ['Carlos Tevez', 'João Cancelo', 'Danilo', 'Patrick Vieira', 'Nicolas Anelka'],
+  'juventus|man_united': ['Cristiano Ronaldo', 'Paul Pogba', 'Zlatan Ibrahimović', 'Carlos Tevez', 'Patrice Evra', 'Edwin van der Sar'],
+  'juventus|psg': ['Zlatan Ibrahimović', 'Gianluigi Buffon', 'Ángel Di María', 'Adrien Rabiot', 'Kingsley Coman', 'Dani Alves'],
+  'juventus|real_madrid': ['Cristiano Ronaldo', 'Zinedine Zidane', 'Gonzalo Higuaín', 'Álvaro Morata', 'Sami Khedira', 'Fabio Cannavaro'],
+  'man_city|man_united': ['Carlos Tevez', 'Peter Schmeichel', 'Andy Cole', 'Owen Hargreaves', 'Jadon Sancho', 'Denis Law'],
+  'man_city|psg': ['Gianluigi Donnarumma', 'Nicolas Anelka', 'George Weah', 'Ali Benarbia', 'Sylvain Distin'],
+  'man_city|real_madrid': ['Robinho', 'Brahim Díaz', 'Danilo', 'Mateo Kovačić', 'Emmanuel Adebayor', 'Steve McManaman'],
+  'man_united|psg': ['Zlatan Ibrahimović', 'Ángel Di María', 'Edinson Cavani', 'David Beckham', 'Ander Herrera', 'Manuel Ugarte'],
+  'man_united|real_madrid': ['Cristiano Ronaldo', 'David Beckham', 'Casemiro', 'Raphaël Varane', 'Ángel Di María', 'Ruud van Nistelrooy'],
+  'psg|real_madrid': ['Kylian Mbappé', 'Sergio Ramos', 'Ángel Di María', 'Keylor Navas', 'Achraf Hakimi', 'Claude Makélélé'],
 };
+
+function getClubIntersectionHints(clubA: string, clubB: string): string[] {
+  const key = [clubA, clubB].sort().join('|');
+  return TICTACTOE_CLUB_PAIRS[key] || ['Shared Club Player'];
+}
 
 const WINNING_LINES = [
   [0, 1, 2],
@@ -175,16 +174,21 @@ function shuffleArray<T>(items: T[]): T[] {
 }
 
 function createFallbackTicTacToe(startingTeam: TeamId = 'red'): TicTacToeState {
-  const clubs = shuffleArray(CLUB_POOL).slice(0, 3);
-  const nations = shuffleArray(NATION_POOL).slice(0, 3);
+  const shuffled = shuffleArray(CLUB_POOL);
+  const clubs = shuffled.slice(0, 3);
+  const rowClubs = shuffled.slice(3, 6);
+  const nations: TicTacToeNation[] = rowClubs.map((c) => ({
+    id: c.id,
+    name: c.name,
+    code: c.shortName,
+  }));
   const cells = [];
   const hintsByCell: Record<number, string[]> = {};
   for (let row = 0; row < 3; row++) {
     for (let col = 0; col < 3; col++) {
       const index = row * 3 + col;
       cells.push({ index, row, col, owner: null, playerName: null });
-      hintsByCell[index] =
-        TICTACTOE_HINTS[clubs[col].id]?.[nations[row].id] || ['Valid Club + Nation Player'];
+      hintsByCell[index] = getClubIntersectionHints(clubs[col].id, nations[row].id);
     }
   }
   return {
@@ -305,8 +309,14 @@ export const GameSyncProvider: React.FC<{
     try {
       const saved = localStorage.getItem(STATE_STORAGE_KEY);
       if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed && Array.isArray(parsed.cards)) return parsed;
+        const parsed = JSON.parse(saved) as GameSessionState;
+        if (parsed && Array.isArray(parsed.cards)) {
+          const ttt = parsed.activeMiniGame?.ticTacToe;
+          if (ttt && ttt.nations?.some((n) => !CLUB_IDS.has(n.id))) {
+            parsed.activeMiniGame!.ticTacToe = createFallbackTicTacToe(parsed.activeTeam);
+          }
+          return parsed;
+        }
       }
     } catch {
       // ignore

@@ -26,7 +26,7 @@ export const StudioStageView: React.FC<{
     state.stage === 'minigame' && state.activeMiniGame ? state.activeMiniGame : null
   );
   const [stageAnim, setStageAnim] = useState<'idle' | 'opening' | 'closing' | 'board-enter'>('idle');
-  const [boardDealKey, setBoardDealKey] = useState(0);
+  const [isDealingBoard, setIsDealingBoard] = useState(false);
   const [stingerInfo, setStingerInfo] = useState<{
     mode: 'open' | 'close';
     title: string;
@@ -36,9 +36,7 @@ export const StudioStageView: React.FC<{
   } | null>(null);
 
   const prevStageRef = useRef<'board' | 'minigame'>(state.stage);
-  const prevCardKeyRef = useRef<string>(
-    state.cards.map((c) => `${c.cardNumber}:${c.category}`).join(',')
-  );
+  const prevDeckIdRef = useRef<number>(state.boardDeckId || 1);
 
   // Synchronize open & close animations when entering or leaving any mini-game
   useEffect(() => {
@@ -80,14 +78,15 @@ export const StudioStageView: React.FC<{
 
       const closeTimer = setTimeout(() => {
         setRenderedMiniGame(null);
-        setBoardDealKey((k) => k + 1);
+        setIsDealingBoard(true);
         setStageAnim('board-enter');
       }, 360);
 
       const finishTimer = setTimeout(() => {
         setStageAnim('idle');
+        setIsDealingBoard(false);
         setStingerInfo(null);
-      }, 860);
+      }, 920);
 
       return () => {
         clearTimeout(closeTimer);
@@ -96,16 +95,18 @@ export const StudioStageView: React.FC<{
     }
   }, [state.stage, state.activeMiniGame]);
 
-  // Trigger staggered card deal animation when Shuffle Sports or New Game is clicked on the board
+  // Trigger brief card deal animation ONLY when Shuffle Sports or New Game explicitly increments boardDeckId
   useEffect(() => {
-    const sig = state.cards.map((c) => `${c.cardNumber}:${c.category}`).join(',');
-    if (sig !== prevCardKeyRef.current) {
-      prevCardKeyRef.current = sig;
+    const currentDeckId = state.boardDeckId || 1;
+    if (currentDeckId !== prevDeckIdRef.current) {
+      prevDeckIdRef.current = currentDeckId;
       if (state.stage === 'board') {
-        setBoardDealKey((k) => k + 1);
+        setIsDealingBoard(true);
+        const timer = setTimeout(() => setIsDealingBoard(false), 620);
+        return () => clearTimeout(timer);
       }
     }
-  }, [state.cards, state.stage]);
+  }, [state.boardDeckId, state.stage]);
 
   // Track score pulse animation
   useEffect(() => {
@@ -313,7 +314,6 @@ export const StudioStageView: React.FC<{
         {showBoard || !mg ? (
           /* 2 ROWS x 4 COLUMNS MAIN REVEAL BOARD */
           <div
-            key={`board-${boardDealKey}`}
             className={`w-full h-full grid grid-cols-4 grid-rows-2 ${
               isPreview ? 'gap-2' : 'gap-5 lg:gap-7'
             } ${stageAnim === 'board-enter' ? 'animate-board-return' : ''}`}
@@ -326,34 +326,47 @@ export const StudioStageView: React.FC<{
               const isSelected = state.selectedCardNumber === card.cardNumber;
               return (
                 <div
-                  key={`${boardDealKey}-${card.cardNumber}`}
-                  className={`relative w-full h-full animate-card-deal transition-opacity duration-300 ${
-                    isLockedByPick ? 'opacity-45 grayscale-[60%]' : 'opacity-100'
+                  key={card.cardNumber}
+                  className={`relative w-full h-full ${
+                    isDealingBoard ? 'animate-card-deal' : ''
                   }`}
                   style={{
                     perspective: '1200px',
-                    animationDelay: `${idx * 45}ms`,
+                    WebkitPerspective: '1200px',
+                    animationDelay: isDealingBoard ? `${idx * 45}ms` : undefined,
                   }}
                 >
                   <div
-                    className="relative w-full h-full transition-transform duration-700"
+                    className="relative w-full h-full"
                     style={{
                       transformStyle: 'preserve-3d',
-                      transform: card.revealed ? 'rotateY(180deg)' : 'rotateY(0deg)',
+                      WebkitTransformStyle: 'preserve-3d',
+                      transition: 'transform 700ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+                      transform: card.revealed
+                        ? 'rotateY(180deg) scale(1.02)'
+                        : isLockedByPick
+                        ? 'rotateY(0deg) scale(0.97)'
+                        : isSelected
+                        ? 'rotateY(0deg) scale(1.015)'
+                        : 'rotateY(0deg) scale(1)',
                     }}
                   >
                     {/* FRONT OF CARD: FIXED EMOJI COVER */}
                     <div
-                      className={`absolute inset-0 rounded-2xl bg-gradient-to-b from-[#0E1E38] to-[#081326] flex flex-col items-center justify-between transition-all duration-300 ${
+                      className={`absolute inset-0 rounded-2xl bg-gradient-to-b from-[#0E1E38] to-[#081326] flex flex-col items-center justify-between transition-opacity duration-300 ${
                         isPreview ? 'p-2 border' : 'p-4 lg:p-6 border-2'
                       } ${
                         isLockedByPick
-                          ? 'border-slate-800/70 scale-[0.97]'
+                          ? 'border-slate-800/70 opacity-45 grayscale-[60%]'
                           : isSelected
-                          ? 'border-[#F59E0B] shadow-[0_0_28px_rgba(245,158,11,0.38)] scale-[1.015]'
-                          : 'border-slate-700/80'
+                          ? 'border-[#F59E0B] shadow-[0_0_28px_rgba(245,158,11,0.38)] opacity-100'
+                          : 'border-slate-700/80 opacity-100'
                       }`}
-                      style={{ backfaceVisibility: 'hidden' }}
+                      style={{
+                        backfaceVisibility: 'hidden',
+                        WebkitBackfaceVisibility: 'hidden',
+                        transform: 'rotateY(0deg) translateZ(2px)',
+                      }}
                     >
                       <div className="w-full flex items-center justify-between">
                         <span
@@ -423,7 +436,8 @@ export const StudioStageView: React.FC<{
                       }`}
                       style={{
                         backfaceVisibility: 'hidden',
-                        transform: 'rotateY(180deg)',
+                        WebkitBackfaceVisibility: 'hidden',
+                        transform: 'rotateY(180deg) translateZ(2px)',
                       }}
                     >
                       <div className="w-full flex items-center justify-between">

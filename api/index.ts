@@ -120,6 +120,7 @@ interface GameSessionState {
   } | null;
   selectedCardNumber: number;
   stage: 'board' | 'minigame';
+  boardDeckId?: number;
   cards: BoardCard[];
   activeMiniGame: ActiveMiniGameState | null;
   updatedAt: number;
@@ -395,6 +396,7 @@ function getDb(): ServerlessDB {
       lastScorePulse: null,
       selectedCardNumber: 1,
       stage: 'board',
+      boardDeckId: 1,
       cards: createShuffledCards(),
       activeMiniGame: null,
       updatedAt: Date.now(),
@@ -735,6 +737,7 @@ export default async function handler(req: any, res: any) {
         session.stage = 'board';
         session.activeMiniGame = null;
         db.timerStartedAt = null;
+        session.boardDeckId = (session.boardDeckId || 1) + 1;
         session.cards = createShuffledCards();
         break;
       case 'board:newGame':
@@ -746,6 +749,7 @@ export default async function handler(req: any, res: any) {
         session.stage = 'board';
         session.activeMiniGame = null;
         db.timerStartedAt = null;
+        session.boardDeckId = (session.boardDeckId || 1) + 1;
         session.cards = createShuffledCards();
         break;
       case 'minigame:useItem': {
@@ -859,6 +863,7 @@ export default async function handler(req: any, res: any) {
         break;
       }
       case 'minigame:backToBoard':
+        session.boardDeckId = (session.boardDeckId || 1) + 1;
         session.cards = createShuffledCards();
         session.stage = 'board';
         session.activeMiniGame = null;

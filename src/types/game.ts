@@ -124,6 +124,7 @@ export interface GameSessionState {
   } | null;
   selectedCardNumber: number; // 1..8
   stage: 'board' | 'minigame';
+  boardDeckId?: number;
   cards: BoardCard[];
   activeMiniGame: ActiveMiniGameState | null;
   updatedAt: number;

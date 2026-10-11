@@ -449,6 +449,7 @@ function loadDatabase(): PersistentDatabase {
       lastScorePulse: null,
       selectedCardNumber: 1,
       stage: 'board',
+      boardDeckId: 1,
       cards: createShuffledCards(),
       activeMiniGame: null,
       updatedAt: Date.now(),
@@ -828,6 +829,7 @@ async function startServer() {
         // Randomize the 8 hidden categories, cover all cards, and reset card scoring locks while preserving Red and Blue team scores
         session.stage = 'board';
         session.activeMiniGame = null;
+        session.boardDeckId = (session.boardDeckId || 1) + 1;
         session.cards = createShuffledCards();
         cachedTicTacToe = createFreshTicTacToeState(session.activeTeam);
         break;
@@ -842,6 +844,7 @@ async function startServer() {
         session.selectedCardNumber = 1;
         session.stage = 'board';
         session.activeMiniGame = null;
+        session.boardDeckId = (session.boardDeckId || 1) + 1;
         session.cards = createShuffledCards();
         cachedTicTacToe = createFreshTicTacToeState('red');
         break;
@@ -977,6 +980,7 @@ async function startServer() {
           broadcastAudioEvent('stop');
         }
         // Reset covers and shuffle the 8 hidden sports categories whenever returning to board from any mini-game
+        session.boardDeckId = (session.boardDeckId || 1) + 1;
         session.cards = createShuffledCards();
         cachedTicTacToe = createFreshTicTacToeState(session.activeTeam);
         session.stage = 'board';

@@ -293,6 +293,7 @@ function createDefaultSessionState(): GameSessionState {
     lastScorePulse: null,
     selectedCardNumber: 1,
     stage: 'board',
+    boardDeckId: 1,
     cards: createFallbackCards(),
     activeMiniGame: null,
     updatedAt: Date.now(),
@@ -438,8 +439,16 @@ export const GameSyncProvider: React.FC<{
     const handleStorage = (e: StorageEvent) => {
       if (e.key === STATE_STORAGE_KEY && e.newValue) {
         try {
-          const parsed = JSON.parse(e.newValue);
-          if (parsed) setState(parsed);
+          const parsed = JSON.parse(e.newValue) as GameSessionState;
+          if (parsed) {
+            if (
+              role === 'host' &&
+              parsed.cards?.some((c) => !c.revealed && c.categoryTitle === 'HIDDEN SPORT')
+            ) {
+              return;
+            }
+            setState(parsed);
+          }
         } catch {
           // ignore
         }
@@ -588,10 +597,12 @@ export const GameSyncProvider: React.FC<{
           const msg = JSON.parse(event.data);
           if (msg.type === 'state:update' && msg.state) {
             setState(msg.state);
-            try {
-              localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(msg.state));
-            } catch {
-              // ignore
+            if (role === 'host') {
+              try {
+                localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(msg.state));
+              } catch {
+                // ignore
+              }
             }
             if (Array.isArray(msg.contentItems)) {
               setContentItems(msg.contentItems);
@@ -905,6 +916,7 @@ export const GameSyncProvider: React.FC<{
           case 'board:shuffleSports':
             next.stage = 'board';
             next.activeMiniGame = null;
+            next.boardDeckId = (next.boardDeckId || 1) + 1;
             next.cards = createFallbackCards();
             break;
 
@@ -916,6 +928,7 @@ export const GameSyncProvider: React.FC<{
             next.selectedCardNumber = 1;
             next.stage = 'board';
             next.activeMiniGame = null;
+            next.boardDeckId = (next.boardDeckId || 1) + 1;
             next.cards = createFallbackCards();
             break;
 
@@ -1035,6 +1048,7 @@ export const GameSyncProvider: React.FC<{
             if (next.activeMiniGame?.audioPlaying) {
               audioCmd = { action: 'stop' };
             }
+            next.boardDeckId = (next.boardDeckId || 1) + 1;
             next.cards = createFallbackCards();
             next.stage = 'board';
             next.activeMiniGame = null;

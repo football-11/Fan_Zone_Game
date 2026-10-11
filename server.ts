@@ -1154,8 +1154,17 @@ async function startServer() {
 
   // REST API Endpoints
   // 1. Studio Public Read-Only State (Sanitized)
-  app.get('/api/studio/state', (_req, res) => {
+  app.get('/api/studio/state', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    const sinceParam = Number(req.query.since || 0);
+    const serverUpdatedAt = dbState.session.updatedAt || 0;
+    const timerActive = Boolean(dbState.session.activeMiniGame?.timerRunning);
+    if (sinceParam > 0 && !timerActive && (serverUpdatedAt === 0 || serverUpdatedAt <= sinceParam)) {
+      return res.json({ unchanged: true, updatedAt: serverUpdatedAt });
+    }
     res.json({
+      unchanged: false,
+      updatedAt: serverUpdatedAt,
       state: sanitizeStateForStudio(dbState.session),
     });
   });
@@ -1206,7 +1215,16 @@ async function startServer() {
     if (!isAuthorizedRequest(req)) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    const sinceParam = Number(req.query.since || 0);
+    const serverUpdatedAt = dbState.session.updatedAt || 0;
+    const timerActive = Boolean(dbState.session.activeMiniGame?.timerRunning);
+    if (sinceParam > 0 && !timerActive && serverUpdatedAt <= sinceParam) {
+      return res.json({ unchanged: true, updatedAt: serverUpdatedAt });
+    }
     res.json({
+      unchanged: false,
+      updatedAt: serverUpdatedAt,
       state: dbState.session,
       contentItems: dbState.contentItems,
     });
@@ -1216,10 +1234,23 @@ async function startServer() {
     if (!isAuthorizedRequest(req)) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
-    const { action, payload } = req.body || {};
+    const { action, payload, clientState, contentItems } = req.body || {};
+    if (Array.isArray(contentItems) && contentItems.length > 0) {
+      dbState.contentItems = contentItems;
+    }
+    if (clientState && typeof clientState === 'object' && Array.isArray(clientState.cards)) {
+      dbState.session = clientState;
+      broadcastState();
+      return res.json({
+        ok: true,
+        updatedAt: dbState.session.updatedAt,
+        state: dbState.session,
+      });
+    }
     handleHostAction(action, payload || {});
     res.json({
       ok: true,
+      updatedAt: dbState.session.updatedAt,
       state: dbState.session,
     });
   });

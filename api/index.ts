@@ -399,18 +399,20 @@ function getDb(): ServerlessDB {
       boardDeckId: 1,
       cards: createShuffledCards(),
       activeMiniGame: null,
-      updatedAt: Date.now(),
+      updatedAt: 0,
     },
     contentItems: createDefaultContentItems(),
     timerStartedAt: null,
     timerInitialSeconds: 30,
   };
-  saveDb(memoryDb);
+  saveDb(memoryDb, true);
   return memoryDb;
 }
 
-function saveDb(db: ServerlessDB) {
-  db.session.updatedAt = Date.now();
+function saveDb(db: ServerlessDB, preserveTimestamp = false) {
+  if (!preserveTimestamp) {
+    db.session.updatedAt = Math.max(Date.now(), (db.session.updatedAt || 0) + 1);
+  }
   memoryDb = db;
   try {
     fs.writeFileSync(DB_FILE, JSON.stringify(db), 'utf-8');
@@ -541,7 +543,7 @@ async function parseJsonBody(req: any): Promise<any> {
 function sendJson(res: any, statusCode: number, data: any) {
   res.statusCode = statusCode;
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
   res.end(JSON.stringify(data));
 }
 
@@ -558,7 +560,17 @@ export default async function handler(req: any, res: any) {
   // 1. GET /api/studio/state
   if (method === 'GET' && routePath === '/api/studio/state') {
     const db = getDb();
-    return sendJson(res, 200, { state: sanitizeStateForStudio(db.session) });
+    const sinceParam = Number(parsedUrl.searchParams.get('since') || 0);
+    const serverUpdatedAt = db.session.updatedAt || 0;
+    const timerActive = Boolean(db.session.activeMiniGame?.timerRunning);
+    if (sinceParam > 0 && !timerActive && (serverUpdatedAt === 0 || serverUpdatedAt <= sinceParam)) {
+      return sendJson(res, 200, { unchanged: true, updatedAt: serverUpdatedAt });
+    }
+    return sendJson(res, 200, {
+      unchanged: false,
+      updatedAt: serverUpdatedAt,
+      state: sanitizeStateForStudio(db.session),
+    });
   }
 
   // 2. POST /api/auth/login
@@ -600,7 +612,18 @@ export default async function handler(req: any, res: any) {
   if (method === 'GET' && routePath === '/api/host/state') {
     if (!isAuthorizedRequest(req)) return sendJson(res, 401, { error: 'Unauthorized' });
     const db = getDb();
-    return sendJson(res, 200, { state: db.session, contentItems: db.contentItems });
+    const sinceParam = Number(parsedUrl.searchParams.get('since') || 0);
+    const serverUpdatedAt = db.session.updatedAt || 0;
+    const timerActive = Boolean(db.session.activeMiniGame?.timerRunning);
+    if (sinceParam > 0 && !timerActive && serverUpdatedAt <= sinceParam) {
+      return sendJson(res, 200, { unchanged: true, updatedAt: serverUpdatedAt });
+    }
+    return sendJson(res, 200, {
+      unchanged: false,
+      updatedAt: serverUpdatedAt,
+      state: db.session,
+      contentItems: db.contentItems,
+    });
   }
 
   // 5. POST /api/host/action
@@ -608,8 +631,33 @@ export default async function handler(req: any, res: any) {
     if (!isAuthorizedRequest(req)) return sendJson(res, 401, { error: 'Unauthorized' });
     const body = await parseJsonBody(req);
     const db = getDb();
+    const { action, payload = {}, clientState, contentItems } = body || {};
+
+    if (Array.isArray(contentItems) && contentItems.length > 0) {
+      db.contentItems = contentItems;
+    }
+
+    if (clientState && typeof clientState === 'object' && Array.isArray(clientState.cards)) {
+      db.session = clientState;
+      const mg = db.session.activeMiniGame;
+      if (mg && mg.timerRunning) {
+        db.timerStartedAt = Date.now();
+        db.timerInitialSeconds = mg.timerSeconds;
+      } else {
+        db.timerStartedAt = null;
+      }
+      if (!db.session.updatedAt || db.session.updatedAt <= 0) {
+        db.session.updatedAt = Date.now();
+      }
+      saveDb(db, true);
+      return sendJson(res, 200, {
+        ok: true,
+        updatedAt: db.session.updatedAt,
+        state: db.session,
+      });
+    }
+
     const session = db.session;
-    const { action, payload = {} } = body || {};
 
     switch (action) {
       case 'team:setActive':

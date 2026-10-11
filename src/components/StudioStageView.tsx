@@ -124,11 +124,19 @@ export const StudioStageView: React.FC<{
     setImgFailed(false);
   }, [renderedMiniGame?.snapshot?.mediaUrl]);
 
-  // Tick every 500ms to auto-expire temporary "Not Accepted" Tic-Tac-Toe feedback after 3.5s
+  // Auto-expire temporary "Not Accepted" Tic-Tac-Toe feedback after 3.5s without unconditional 500ms re-renders
+  const rejectedTimestamp =
+    state.stage === 'minigame'
+      ? state.activeMiniGame?.ticTacToe?.rejectedFeedback?.timestamp
+      : renderedMiniGame?.ticTacToe?.rejectedFeedback?.timestamp;
+
   useEffect(() => {
-    const id = setInterval(() => setNowTick(Date.now()), 500);
-    return () => clearInterval(id);
-  }, []);
+    if (!rejectedTimestamp) return;
+    setNowTick(Date.now());
+    const remaining = Math.max(0, 3550 - (Date.now() - rejectedTimestamp));
+    const timer = setTimeout(() => setNowTick(Date.now()), remaining);
+    return () => clearTimeout(timer);
+  }, [rejectedTimestamp]);
 
   const mg = state.stage === 'minigame' ? state.activeMiniGame : renderedMiniGame;
   const showBoard = state.stage === 'board' && stageAnim !== 'closing';

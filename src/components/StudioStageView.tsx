@@ -5,6 +5,7 @@ import {
   ClubCrestArtwork,
   EmojiBadgeArtwork,
   NationFlagArtwork,
+  PlayerPortraitArtwork,
 } from './BroadcastArtwork';
 
 function formatCountdown(seconds: number): string {
@@ -148,7 +149,7 @@ export const StudioStageView: React.FC<{
       className={`relative w-full h-full bg-[#030914] text-white overflow-hidden flex flex-col justify-between ${
         isPreview
           ? 'p-3 rounded-xl border border-slate-800 select-none'
-          : 'w-screen h-screen px-[4vw] py-[3.2vh] cursor-none select-none'
+          : 'p-3 sm:p-5 lg:p-7 select-none'
       }`}
     >
       {/* Subtle Stadium Floodlight Radial Glow */}
@@ -208,13 +209,19 @@ export const StudioStageView: React.FC<{
         {/* RED TEAM SCOREBOARD (LEFT) */}
         <div
           className={`col-span-4 relative rounded-2xl bg-[#081326]/95 transition-all duration-200 overflow-hidden ${
-            isPreview ? 'px-3 py-2 border' : 'px-6 py-3.5 border-2'
+            isPreview ? 'px-3 py-2 border' : 'px-5 sm:px-6 py-3 border-2'
           } ${
             activeTeam === 'red'
-              ? 'border-[#EF4444] shadow-[0_0_32px_rgba(239,68,68,0.4)]'
+              ? 'border-[#EF4444] shadow-[0_0_36px_rgba(239,68,68,0.45)]'
               : 'border-slate-800/90 opacity-85'
           }`}
         >
+          {/* Floating Score Award Burst */}
+          {pulseTeam === 'red' && (
+            <span className="absolute -top-1.5 right-6 px-2.5 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black text-xs font-['Outfit'] animate-score-pulse shadow-[0_0_20px_rgba(245,158,11,0.8)] z-30">
+              +{state.lastScorePulse?.delta || 1} PTS
+            </span>
+          )}
           {/* Animated Active Team Indicator Bar */}
           {activeTeam === 'red' && (
             <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#EF4444] via-amber-400 to-[#EF4444]" />
@@ -224,7 +231,7 @@ export const StudioStageView: React.FC<{
               <div className="flex items-center gap-2">
                 <span
                   className={`font-['Outfit'] font-black tracking-wider text-white ${
-                    isPreview ? 'text-xs' : 'text-2xl lg:text-3xl'
+                    isPreview ? 'text-xs' : 'text-xl sm:text-2xl lg:text-3xl'
                   }`}
                 >
                   RED TEAM
@@ -240,12 +247,12 @@ export const StudioStageView: React.FC<{
             </div>
             <div
               className={`font-['JetBrains_Mono'] font-extrabold tabular-nums transition-transform duration-200 ${
-                isPreview ? 'text-xl px-2 py-0.5' : 'text-4xl lg:text-6xl px-4 py-1'
+                isPreview ? 'text-xl px-2 py-0.5' : 'text-3xl sm:text-4xl lg:text-6xl px-4 py-1'
               } rounded-xl bg-red-950/70 border border-red-500/40 text-red-400 ${
-                pulseTeam === 'red' ? 'scale-125 bg-red-500 text-white' : 'scale-100'
+                pulseTeam === 'red' ? 'scale-125 bg-red-500 text-white animate-score-pulse' : 'scale-100'
               }`}
             >
-              {state.redScore}
+              {state.redScore ?? 0}
             </div>
           </div>
         </div>
@@ -254,7 +261,7 @@ export const StudioStageView: React.FC<{
         <div className="col-span-4 flex flex-col items-center justify-center text-center">
           <div
             className={`font-['Outfit'] font-black tracking-tight text-white flex items-center gap-2 ${
-              isPreview ? 'text-sm' : 'text-3xl lg:text-4xl'
+              isPreview ? 'text-sm' : 'text-2xl sm:text-3xl lg:text-4xl'
             }`}
           >
             <span className="text-[#F59E0B]">FANZONE</span>
@@ -262,7 +269,7 @@ export const StudioStageView: React.FC<{
           </div>
           <div
             className={`mt-1 font-['Plus_Jakarta_Sans'] font-semibold text-slate-300 tracking-wide ${
-              isPreview ? 'text-[10px]' : 'text-sm lg:text-base'
+              isPreview ? 'text-[10px]' : 'text-xs sm:text-sm lg:text-base'
             }`}
           >
             {showBoard || !mg
@@ -274,13 +281,19 @@ export const StudioStageView: React.FC<{
         {/* BLUE TEAM SCOREBOARD (RIGHT) */}
         <div
           className={`col-span-4 relative rounded-2xl bg-[#081326]/95 transition-all duration-200 overflow-hidden ${
-            isPreview ? 'px-3 py-2 border' : 'px-6 py-3.5 border-2'
+            isPreview ? 'px-3 py-2 border' : 'px-5 sm:px-6 py-3 border-2'
           } ${
             activeTeam === 'blue'
-              ? 'border-[#38BDF8] shadow-[0_0_32px_rgba(56,189,248,0.4)]'
+              ? 'border-[#38BDF8] shadow-[0_0_36px_rgba(56,189,248,0.45)]'
               : 'border-slate-800/90 opacity-85'
           }`}
         >
+          {/* Floating Score Award Burst */}
+          {pulseTeam === 'blue' && (
+            <span className="absolute -top-1.5 left-6 px-2.5 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black text-xs font-['Outfit'] animate-score-pulse shadow-[0_0_20px_rgba(245,158,11,0.8)] z-30">
+              +{state.lastScorePulse?.delta || 1} PTS
+            </span>
+          )}
           {/* Animated Active Team Indicator Bar */}
           {activeTeam === 'blue' && (
             <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#38BDF8] via-amber-400 to-[#38BDF8]" />
@@ -288,18 +301,18 @@ export const StudioStageView: React.FC<{
           <div className="flex items-center justify-between gap-2">
             <div
               className={`font-['JetBrains_Mono'] font-extrabold tabular-nums transition-transform duration-200 ${
-                isPreview ? 'text-xl px-2 py-0.5' : 'text-4xl lg:text-6xl px-4 py-1'
+                isPreview ? 'text-xl px-2 py-0.5' : 'text-3xl sm:text-4xl lg:text-6xl px-4 py-1'
               } rounded-xl bg-sky-950/70 border border-sky-400/40 text-sky-300 ${
-                pulseTeam === 'blue' ? 'scale-125 bg-sky-400 text-slate-950' : 'scale-100'
+                pulseTeam === 'blue' ? 'scale-125 bg-sky-400 text-slate-950 animate-score-pulse' : 'scale-100'
               }`}
             >
-              {state.blueScore}
+              {state.blueScore ?? 0}
             </div>
             <div className="text-right">
               <div className="flex items-center justify-end gap-2">
                 <span
                   className={`font-['Outfit'] font-black tracking-wider text-white ${
-                    isPreview ? 'text-xs' : 'text-2xl lg:text-3xl'
+                    isPreview ? 'text-xs' : 'text-xl sm:text-2xl lg:text-3xl'
                   }`}
                 >
                   BLUE TEAM
@@ -326,8 +339,8 @@ export const StudioStageView: React.FC<{
               isPreview ? 'gap-2' : 'gap-5 lg:gap-7'
             } ${stageAnim === 'board-enter' ? 'animate-board-return' : ''}`}
           >
-            {state.cards.map((card, idx) => {
-              const revealedCard = state.cards.find((c) => c.revealed);
+            {(state.cards || []).map((card, idx) => {
+              const revealedCard = (state.cards || []).find((c) => c.revealed);
               const isLockedByPick = Boolean(
                 revealedCard && revealedCard.cardNumber !== card.cardNumber
               );
@@ -592,13 +605,14 @@ export const StudioStageView: React.FC<{
                   </div>
 
                   {/* Top Row: 3 Club Column Headers */}
-                  {mg.ticTacToe.clubs.map((club) => (
+                  {(mg.ticTacToe.clubs || []).map((club) => (
                     <div
                       key={club.id}
                       className="rounded-xl bg-[#081326] border border-slate-700/80 flex items-center justify-center gap-3 px-3 py-2"
                     >
                       <ClubCrestArtwork
                         clubId={club.id}
+                        logoUrl={club.logoUrl}
                         className={
                           isPreview ? 'w-6 h-6 shrink-0' : 'w-12 h-12 lg:w-14 lg:h-14 shrink-0'
                         }
@@ -614,12 +628,13 @@ export const StudioStageView: React.FC<{
                   ))}
 
                   {/* 3 Rows: Club Row Header + 3 Intersection Squares */}
-                  {mg.ticTacToe.nations.map((rowClub, rowIdx) => (
+                  {(mg.ticTacToe.nations || []).map((rowClub, rowIdx) => (
                     <React.Fragment key={rowClub.id}>
                       {/* Left Row Header: Club Crest Emblem + Name */}
                       <div className="rounded-xl bg-[#081326] border border-slate-700/80 flex items-center justify-center gap-3 px-3 py-2">
                         <ClubCrestArtwork
                           clubId={rowClub.id}
+                          logoUrl={rowClub.logoUrl}
                           className={
                             isPreview ? 'w-6 h-6 shrink-0' : 'w-12 h-12 lg:w-14 lg:h-14 shrink-0'
                           }
@@ -636,15 +651,23 @@ export const StudioStageView: React.FC<{
                       {/* 3 Intersection Cells in this Row */}
                       {[0, 1, 2].map((colIdx) => {
                         const cellIndex = rowIdx * 3 + colIdx;
-                        const cell = mg.ticTacToe!.cells[cellIndex];
-                        const isSelectedCell = mg.ticTacToe!.selectedCellIndex === cellIndex;
-                        const isWinningCell =
-                          mg.ticTacToe!.winningLine?.includes(cellIndex) || false;
+                        const cell = mg.ticTacToe?.cells?.[cellIndex] || {
+                          index: cellIndex,
+                          row: rowIdx,
+                          col: colIdx,
+                          owner: null,
+                          playerName: null,
+                        };
+                        const isSelectedCell = mg.ticTacToe?.selectedCellIndex === cellIndex;
+                        const isWinningCell = Boolean(
+                          Array.isArray(mg.ticTacToe?.winningLine) &&
+                            mg.ticTacToe.winningLine.includes(cellIndex)
+                        );
                         const recentRejection =
-                          mg.ticTacToe!.rejectedFeedback &&
-                          mg.ticTacToe!.rejectedFeedback.cellIndex === cellIndex &&
-                          nowTick - mg.ticTacToe!.rejectedFeedback.timestamp < 3500
-                            ? mg.ticTacToe!.rejectedFeedback
+                          mg.ticTacToe?.rejectedFeedback &&
+                          mg.ticTacToe.rejectedFeedback.cellIndex === cellIndex &&
+                          nowTick - mg.ticTacToe.rejectedFeedback.timestamp < 3500
+                            ? mg.ticTacToe.rejectedFeedback
                             : null;
 
                         return (
@@ -677,22 +700,32 @@ export const StudioStageView: React.FC<{
                             </span>
 
                             {cell.owner ? (
-                              <>
+                              <div className="flex flex-col items-center justify-center gap-1 sm:gap-1.5 max-w-full h-full py-0.5">
+                                <PlayerPortraitArtwork
+                                  playerName={cell.playerName}
+                                  playerImageUrl={cell.playerImageUrl}
+                                  teamColor={cell.owner}
+                                  className={
+                                    isPreview
+                                      ? 'w-10 h-10'
+                                      : 'w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 lg:w-32 lg:h-32 xl:w-36 xl:h-36 shadow-[0_4px_24px_rgba(0,0,0,0.55)] ring-2 sm:ring-4 ring-white/20'
+                                  }
+                                />
                                 <span
-                                  className={`font-['Outfit'] font-black text-white leading-tight ${
-                                    isPreview ? 'text-[10px]' : 'text-xl lg:text-2xl'
+                                  className={`font-['Outfit'] font-black text-white leading-tight truncate max-w-full px-1.5 drop-shadow-md ${
+                                    isPreview ? 'text-[9px]' : 'text-xs sm:text-sm lg:text-base xl:text-lg'
                                   }`}
                                 >
                                   {cell.playerName}
                                 </span>
                                 <span
-                                  className={`mt-1 font-['Plus_Jakarta_Sans'] font-bold uppercase tracking-wider ${
-                                    isPreview ? 'text-[7px]' : 'text-xs'
+                                  className={`font-['Plus_Jakarta_Sans'] font-extrabold uppercase tracking-widest ${
+                                    isPreview ? 'text-[6px]' : 'text-[9px] sm:text-[10px] lg:text-xs'
                                   } text-white/90`}
                                 >
                                   {cell.owner === 'red' ? 'RED TEAM' : 'BLUE TEAM'}
                                 </span>
-                              </>
+                              </div>
                             ) : recentRejection ? (
                               <div className="flex flex-col items-center">
                                 <span
@@ -865,52 +898,73 @@ export const StudioStageView: React.FC<{
                   )}
 
                   {(mg.category === 'quiz' || mg.category === 'number') && (
-                    <div className="w-full max-w-5xl flex flex-col items-center justify-center text-center px-4">
-                      <div
-                        className={`font-['Outfit'] font-extrabold text-white leading-tight [text-wrap:balance] ${
-                          isPreview ? 'text-sm' : 'text-[clamp(1.75rem,3.2vw,3.5rem)]'
+                    <div className="w-full max-w-4xl flex flex-col items-center justify-center text-center p-6 sm:p-8 rounded-2xl bg-gradient-to-b from-[#0E1E38]/90 via-[#091528]/95 to-[#061021] border-2 border-amber-500/35 shadow-[0_0_50px_rgba(245,158,11,0.15)] relative overflow-hidden animate-minigame-open">
+                      {/* Top Specular Neon Accent Line */}
+                      <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-transparent via-[#F59E0B] to-transparent" />
+                      
+                      {/* Challenge Kicker Banner */}
+                      <div className="flex items-center gap-2 mb-4">
+                        <CategoryBadgeArtwork category={mg.category} className="w-6 h-6 shrink-0" />
+                        <span className="font-['Plus_Jakarta_Sans'] font-extrabold text-[#F59E0B] text-xs sm:text-sm uppercase tracking-widest">
+                          {mg.category === 'quiz' ? 'OFFICIAL FOOTBALL TRIVIA QUESTION' : 'STATISTICAL NUMBER CHALLENGE'}
+                        </span>
+                      </div>
+
+                      {/* Prime-Time Question Heading */}
+                      <h3
+                        className={`font-['Outfit'] font-black text-white leading-tight [text-wrap:balance] ${
+                          isPreview ? 'text-xs' : 'text-2xl sm:text-3xl md:text-4xl lg:text-5xl drop-shadow-md'
                         }`}
                       >
                         {mg.snapshot?.prompt || 'Prepare for the broadcast question!'}
-                      </div>
+                      </h3>
                     </div>
                   )}
 
                   {mg.category === 'audio' && (
-                    <div className="w-full max-w-4xl flex flex-col items-center justify-center text-center gap-5 px-4">
-                      {/* Animated Broadcast Soundwave Visualizer */}
+                    <div className="w-full max-w-4xl flex flex-col items-center justify-center text-center gap-4 sm:gap-5 p-6 rounded-2xl bg-gradient-to-b from-[#0E1E38]/90 via-[#091528]/95 to-[#061021] border-2 border-sky-500/35 shadow-[0_0_50px_rgba(56,189,248,0.15)] relative overflow-hidden animate-minigame-open">
+                      <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-transparent via-[#38BDF8] to-transparent" />
+
+                      {/* Audio Status Header */}
+                      <div className="flex items-center gap-2 font-['Plus_Jakarta_Sans'] font-bold text-xs sm:text-sm tracking-wider uppercase text-sky-400">
+                        <span className={`w-2.5 h-2.5 rounded-full ${mg.audioPlaying ? 'bg-emerald-400 animate-ping' : 'bg-slate-500'}`} />
+                        <span>{mg.audioPlaying ? 'LIVE AUDIO CLIP PLAYING · LISTEN CLOSELY' : 'AUDIO CLIP READY · AWAITING HOST PLAYBACK'}</span>
+                      </div>
+
+                      {/* Animated Broadcast Soundwave Visualizer with 32 Illuminated Frequency Bars */}
                       <div
-                        className={`w-full rounded-2xl bg-[#030914] border border-slate-800 flex items-center justify-center gap-1.5 ${
-                          isPreview ? 'h-14 px-4' : 'h-36 px-10'
+                        className={`w-full rounded-xl bg-[#030914] border border-slate-800 flex items-center justify-center gap-1 sm:gap-1.5 ${
+                          isPreview ? 'h-14 px-4' : 'h-28 sm:h-36 px-6 sm:px-10'
                         }`}
                       >
-                        {Array.from({ length: 28 }).map((_, i) => {
-                          const heights = [28, 52, 76, 40, 92, 64, 35, 85, 48, 96, 55, 30, 72, 60];
+                        {Array.from({ length: 32 }).map((_, i) => {
+                          const heights = [28, 52, 76, 40, 92, 64, 35, 85, 48, 96, 55, 30, 72, 60, 88, 42];
                           const h = heights[i % heights.length];
                           return (
                             <div
                               key={i}
-                              className={`w-2 rounded-full transition-all duration-300 ${
+                              className={`w-1.5 sm:w-2 rounded-full transition-all duration-300 ${
                                 mg.audioPlaying
                                   ? 'bg-gradient-to-t from-[#38BDF8] via-emerald-400 to-[#F59E0B] animate-pulse'
                                   : 'bg-slate-700'
                               }`}
                               style={{
-                                height: mg.audioPlaying ? `${h}%` : '22%',
-                                animationDelay: `${(i % 7) * 90}ms`,
+                                height: mg.audioPlaying ? `${h}%` : '20%',
+                                animationDelay: `${(i % 8) * 80}ms`,
                               }}
                             />
                           );
                         })}
                       </div>
 
-                      <div
-                        className={`font-['Outfit'] font-extrabold text-white leading-snug [text-wrap:balance] ${
-                          isPreview ? 'text-xs' : 'text-[clamp(1.5rem,2.6vw,2.75rem)]'
+                      {/* Audio Prompt Question */}
+                      <h3
+                        className={`font-['Outfit'] font-black text-white leading-snug [text-wrap:balance] ${
+                          isPreview ? 'text-xs' : 'text-xl sm:text-2xl md:text-3xl lg:text-4xl'
                         }`}
                       >
                         {mg.snapshot?.prompt || 'Listen closely to the mystery football audio clip!'}
-                      </div>
+                      </h3>
                     </div>
                   )}
                 </div>

@@ -17,6 +17,10 @@ import {
   signOutOwner,
   syncContentItemToFirestore,
 } from '../firebase';
+import {
+  BZZOIRO_CLUB_POOL,
+  resolveBzzoiroPlayerImageUrl,
+} from '../data/bzzoiroSports';
 
 interface OwnerAuthState {
   authenticated: boolean;
@@ -63,18 +67,7 @@ const STATE_STORAGE_KEY = 'fanzone_live_state_v1';
 const CONTENT_STORAGE_KEY = 'fanzone_content_items_v1';
 const SYNC_CHANNEL_NAME = 'fanzone_live_sync_channel';
 
-const CLUB_POOL: TicTacToeClub[] = [
-  { id: 'real_madrid', name: 'Real Madrid', shortName: 'RMA' },
-  { id: 'barcelona', name: 'FC Barcelona', shortName: 'BAR' },
-  { id: 'man_city', name: 'Manchester City', shortName: 'MCI' },
-  { id: 'psg', name: 'Paris Saint-Germain', shortName: 'PSG' },
-  { id: 'chelsea', name: 'Chelsea FC', shortName: 'CHE' },
-  { id: 'ac_milan', name: 'AC Milan', shortName: 'MIL' },
-  { id: 'man_united', name: 'Manchester United', shortName: 'MUN' },
-  { id: 'juventus', name: 'Juventus FC', shortName: 'JUV' },
-  { id: 'bayern', name: 'Bayern Munich', shortName: 'BAY' },
-  { id: 'inter_milan', name: 'Inter Milan', shortName: 'INT' },
-];
+const CLUB_POOL: TicTacToeClub[] = BZZOIRO_CLUB_POOL;
 
 const CLUB_IDS = new Set(CLUB_POOL.map((c) => c.id));
 
@@ -181,6 +174,8 @@ function createFallbackTicTacToe(startingTeam: TeamId = 'red'): TicTacToeState {
     id: c.id,
     name: c.name,
     code: c.shortName,
+    bzzoiroTeamId: c.bzzoiroTeamId,
+    logoUrl: c.logoUrl,
   }));
   const cells = [];
   const hintsByCell: Record<number, string[]> = {};
@@ -566,13 +561,17 @@ export const GameSyncProvider: React.FC<{
       if (res.ok && ct.includes('application/json')) {
         const data = await res.json();
         if (data.unchanged) return;
-        if (data.state) {
+        if (data.state && Array.isArray(data.state.cards)) {
           const incomingUpdatedAt = Number(data.state.updatedAt || data.updatedAt || 0);
-          if (incomingUpdatedAt <= 0) return;
-          // Never overwrite a newer local BroadcastChannel state
-          if ((stateRef.current?.updatedAt || 0) >= incomingUpdatedAt) return;
-          stateRef.current = data.state;
-          setState(data.state);
+          const currentLocalTimestamp = stateRef.current?.updatedAt || 0;
+          const isFreshOrNewer =
+            currentLocalTimestamp === 0 ||
+            incomingUpdatedAt >= currentLocalTimestamp ||
+            Date.now() - lastLocalSyncAtRef.current > 3000;
+          if (isFreshOrNewer || !stateRef.current) {
+            stateRef.current = data.state;
+            setState(data.state);
+          }
         }
       }
     } catch {
@@ -1163,6 +1162,9 @@ export const GameSyncProvider: React.FC<{
               if (!playerName) break;
               cell.owner = currentTeam;
               cell.playerName = playerName;
+              cell.playerImageUrl =
+                (payload.playerImageUrl ? String(payload.playerImageUrl) : null) ||
+                resolveBzzoiroPlayerImageUrl(playerName);
               ttt.rejectedFeedback = null;
               const outcome = evaluateTicTacToeBoard(ttt);
               if (outcome.winner) {

@@ -12,6 +12,8 @@ import {
   Square,
   Sparkles,
   RefreshCw,
+  Tv,
+  ExternalLink,
 } from 'lucide-react';
 import { GameSyncProvider, useGameSync } from '../context/GameSyncContext';
 import { OwnerAuthGate } from '../components/OwnerAuthGate';
@@ -20,9 +22,14 @@ import {
   CategoryBadgeArtwork,
   ClubCrestArtwork,
   EmojiBadgeArtwork,
-  NationFlagArtwork,
+  PlayerPortraitArtwork,
 } from '../components/BroadcastArtwork';
 import { ContentItem } from '../types/game';
+import {
+  BzzoiroSearchResultItem,
+  resolveBzzoiroPlayerImageUrl,
+  searchBzzoiroSports,
+} from '../data/bzzoiroSports';
 
 const HostConsoleBody: React.FC = () => {
   const { state, contentItems, logoutOwner, sendHostAction } = useGameSync();
@@ -34,6 +41,9 @@ const HostConsoleBody: React.FC = () => {
   const [inlineAnswer, setInlineAnswer] = useState<string>('');
   const [inlineBlurAmount, setInlineBlurAmount] = useState<number>(28);
   const [spokenPlayerName, setSpokenPlayerName] = useState<string>('');
+  const [selectedPlayerImageUrl, setSelectedPlayerImageUrl] = useState<string | null>(null);
+  const [bzzoiroPlayerResults, setBzzoiroPlayerResults] = useState<BzzoiroSearchResultItem[]>([]);
+  const [searchingBzzoiro, setSearchingBzzoiro] = useState<boolean>(false);
 
   const mg = state?.activeMiniGame || null;
   const selectedCard =
@@ -70,6 +80,36 @@ const HostConsoleBody: React.FC = () => {
       setInlineBlurAmount(typeof first.blurAmount === 'number' ? first.blurAmount : 28);
     }
   }, [mg?.cardNumber, mg?.snapshot?.itemId, activeCategory, contentItems.length]);
+
+  // Live Bzzoiro Sports API player search when Host types a footballer name in Tic-Tac-Toe
+  useEffect(() => {
+    const q = spokenPlayerName.trim();
+    if (mg?.category !== 'tictactoe' || q.length < 2) {
+      setBzzoiroPlayerResults([]);
+      setSearchingBzzoiro(false);
+      return;
+    }
+
+    let cancelled = false;
+    setSearchingBzzoiro(true);
+    const timer = setTimeout(async () => {
+      const results = await searchBzzoiroSports(q, 'player');
+      if (!cancelled) {
+        setBzzoiroPlayerResults(results.slice(0, 6));
+        setSearchingBzzoiro(false);
+        // Auto-attach exact match image if not manually chosen yet
+        const exact = results.find((r) => r.name.toLowerCase() === q.toLowerCase());
+        if (exact && !selectedPlayerImageUrl) {
+          setSelectedPlayerImageUrl(exact.imageUrl);
+        }
+      }
+    }, 220);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [spokenPlayerName, mg?.category]);
 
   const handleSelectContentDropdown = (itemId: string) => {
     setSelectedItemId(itemId);
@@ -135,14 +175,25 @@ const HostConsoleBody: React.FC = () => {
           >
             Content Manager
           </Link>
-          <Link
-            to="/studio"
-            target="_blank"
-            rel="noreferrer"
-            className="hover:text-sky-400 transition-colors whitespace-nowrap shrink-0"
-          >
-            Studio Display
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              to="/studio"
+              className="px-3 py-1.5 rounded-lg bg-sky-500/15 border border-sky-400/50 hover:bg-sky-500/25 text-sky-300 hover:text-white transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 font-bold"
+              title="Open full 16:9 Studio Display"
+            >
+              <Tv className="w-3.5 h-3.5" />
+              <span>Studio Display</span>
+            </Link>
+            <a
+              href="/studio"
+              target="_blank"
+              rel="noreferrer"
+              className="p-1.5 rounded-lg bg-slate-900 border border-slate-700 hover:border-slate-500 text-slate-400 hover:text-white transition-colors shrink-0"
+              title="Open Studio in new browser tab / window"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          </div>
         </nav>
 
         <div className="flex items-center gap-3 shrink-0">
@@ -591,12 +642,33 @@ const HostConsoleBody: React.FC = () => {
                       >
                         <div className="flex items-center justify-between text-[11px] font-['JetBrains_Mono'] font-bold">
                           <span className="text-amber-400">#{idx + 1}</span>
-                          <span>
-                            {club.shortName} × {nation.code}
+                          <span className="flex items-center gap-1">
+                            <ClubCrestArtwork
+                              clubId={club.id}
+                              logoUrl={club.logoUrl}
+                              className="w-3.5 h-3.5"
+                            />
+                            {club.shortName} ×{' '}
+                            <ClubCrestArtwork
+                              clubId={nation.id}
+                              logoUrl={nation.logoUrl}
+                              className="w-3.5 h-3.5"
+                            />
+                            {nation.code}
                           </span>
                         </div>
-                        <div className="text-xs font-bold font-['Outfit'] truncate mt-1">
-                          {cell.owner ? cell.playerName : 'Open Square'}
+                        <div className="flex items-center gap-1.5 mt-1 min-w-0">
+                          {cell.owner && (
+                            <PlayerPortraitArtwork
+                              playerName={cell.playerName}
+                              playerImageUrl={cell.playerImageUrl}
+                              teamColor={cell.owner}
+                              className="w-6 h-6"
+                            />
+                          )}
+                          <span className="text-xs font-bold font-['Outfit'] truncate">
+                            {cell.owner ? cell.playerName : 'Open Square'}
+                          </span>
                         </div>
                       </button>
                     );
@@ -609,14 +681,22 @@ const HostConsoleBody: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     {activeCellClub && (
-                      <ClubCrestArtwork clubId={activeCellClub.id} className="w-6 h-6" />
+                      <ClubCrestArtwork
+                        clubId={activeCellClub.id}
+                        logoUrl={activeCellClub.logoUrl}
+                        className="w-6 h-6"
+                      />
                     )}
                     <span className="text-xs font-bold text-white">
                       {activeCellClub?.name}
                     </span>
                     <span className="text-slate-500">×</span>
                     {activeCellNation && (
-                      <ClubCrestArtwork clubId={activeCellNation.id} className="w-6 h-6" />
+                      <ClubCrestArtwork
+                        clubId={activeCellNation.id}
+                        logoUrl={activeCellNation.logoUrl}
+                        className="w-6 h-6"
+                      />
                     )}
                     <span className="text-xs font-bold text-white">
                       {activeCellNation?.name}
@@ -627,33 +707,109 @@ const HostConsoleBody: React.FC = () => {
                   </span>
                 </div>
 
-                {/* Quick-Fill Reference Hints */}
+                {/* Quick-Fill Reference Hints with Bzzoiro Player Portraits */}
                 <div>
                   <span className="block text-[11px] text-slate-400 mb-1.5">
-                    Quick-Fill Valid Footballers (Tap to populate):
+                    Quick-Fill Valid Footballers (Bzzoiro Sports Data · Tap to populate):
                   </span>
                   <div className="flex flex-wrap gap-1.5">
-                    {activeCellHints.map((hintName) => (
-                      <button
-                        key={hintName}
-                        type="button"
-                        onClick={() => setSpokenPlayerName(hintName)}
-                        className="min-h-[36px] px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs text-emerald-300 font-medium cursor-pointer"
-                      >
-                        {hintName}
-                      </button>
-                    ))}
+                    {activeCellHints.map((hintName) => {
+                      const hintImg = resolveBzzoiroPlayerImageUrl(hintName);
+                      const isActiveHint = spokenPlayerName === hintName;
+                      return (
+                        <button
+                          key={hintName}
+                          type="button"
+                          onClick={() => {
+                            setSpokenPlayerName(hintName);
+                            setSelectedPlayerImageUrl(hintImg);
+                          }}
+                          className={`min-h-[36px] pl-1.5 pr-2.5 py-1 rounded-lg border text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
+                            isActiveHint
+                              ? 'bg-emerald-500/20 border-emerald-400 text-emerald-200'
+                              : 'bg-slate-900 hover:bg-slate-800 border-slate-700 text-emerald-300'
+                          }`}
+                        >
+                          <PlayerPortraitArtwork
+                            playerName={hintName}
+                            playerImageUrl={hintImg}
+                            className="w-5 h-5"
+                          />
+                          <span>{hintName}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
-                <div>
-                  <input
-                    type="text"
-                    value={spokenPlayerName}
-                    onChange={(e) => setSpokenPlayerName(e.target.value)}
-                    placeholder="Type contestant's spoken footballer name..."
-                    className="w-full min-h-[44px] px-3.5 py-2 rounded-xl bg-[#081326] border border-slate-700 text-sm text-white focus:outline-none focus:border-amber-400"
-                  />
+                {/* Footballer Search & Input with Live Bzzoiro Sports API Results */}
+                <div className="space-y-2">
+                  <div className="relative flex items-center">
+                    {(selectedPlayerImageUrl || resolveBzzoiroPlayerImageUrl(spokenPlayerName)) && (
+                      <div className="absolute left-2.5 pointer-events-none">
+                        <PlayerPortraitArtwork
+                          playerName={spokenPlayerName}
+                          playerImageUrl={
+                            selectedPlayerImageUrl || resolveBzzoiroPlayerImageUrl(spokenPlayerName)
+                          }
+                          className="w-7 h-7"
+                        />
+                      </div>
+                    )}
+                    <input
+                      type="text"
+                      value={spokenPlayerName}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSpokenPlayerName(val);
+                        setSelectedPlayerImageUrl(resolveBzzoiroPlayerImageUrl(val));
+                      }}
+                      placeholder="Type footballer name (searches sports.bzzoiro.com live)..."
+                      className={`w-full min-h-[44px] ${
+                        selectedPlayerImageUrl || resolveBzzoiroPlayerImageUrl(spokenPlayerName)
+                          ? 'pl-11'
+                          : 'pl-3.5'
+                      } pr-3.5 py-2 rounded-xl bg-[#081326] border border-slate-700 text-sm text-white focus:outline-none focus:border-amber-400`}
+                    />
+                  </div>
+
+                  {/* Live Bzzoiro Player Search Matches */}
+                  {(searchingBzzoiro || bzzoiroPlayerResults.length > 0) && (
+                    <div className="p-2 rounded-xl bg-[#081326] border border-slate-700/80 space-y-1.5">
+                      <div className="flex items-center justify-between text-[10px] text-slate-400 px-1">
+                        <span>Bzzoiro Sports API Player Matches</span>
+                        {searchingBzzoiro && <span className="text-amber-400">Searching...</span>}
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {bzzoiroPlayerResults.map((player) => (
+                          <button
+                            key={`${player.id}-${player.name}`}
+                            type="button"
+                            onClick={() => {
+                              setSpokenPlayerName(player.name);
+                              setSelectedPlayerImageUrl(player.imageUrl);
+                            }}
+                            className={`min-h-[34px] pl-1.5 pr-2.5 py-1 rounded-lg border text-xs flex items-center gap-1.5 transition-colors cursor-pointer ${
+                              spokenPlayerName === player.name &&
+                              selectedPlayerImageUrl === player.imageUrl
+                                ? 'bg-amber-500/20 border-amber-400 text-amber-200'
+                                : 'bg-[#030914] hover:bg-slate-900 border-slate-700 text-slate-200'
+                            }`}
+                          >
+                            <PlayerPortraitArtwork
+                              playerName={player.name}
+                              playerImageUrl={player.imageUrl}
+                              className="w-5 h-5"
+                            />
+                            <span className="font-semibold">{player.name}</span>
+                            {player.extra && (
+                              <span className="text-[10px] text-slate-400">({player.extra})</span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -663,12 +819,20 @@ const HostConsoleBody: React.FC = () => {
                     onClick={() => {
                       const nameToUse =
                         spokenPlayerName.trim() || activeCellHints[0] || 'Accepted Player';
+                      const imgToUse =
+                        selectedPlayerImageUrl ||
+                        resolveBzzoiroPlayerImageUrl(nameToUse) ||
+                        bzzoiroPlayerResults[0]?.imageUrl ||
+                        null;
                       sendHostAction('tictactoe:judge', {
                         cellIndex: activeCellIndex,
                         decision: 'accept',
                         playerName: nameToUse,
+                        playerImageUrl: imgToUse,
                       });
                       setSpokenPlayerName('');
+                      setSelectedPlayerImageUrl(null);
+                      setBzzoiroPlayerResults([]);
                     }}
                     className="min-h-[48px] px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap"
                   >
@@ -688,6 +852,8 @@ const HostConsoleBody: React.FC = () => {
                         playerName: spokenPlayerName.trim(),
                       });
                       setSpokenPlayerName('');
+                      setSelectedPlayerImageUrl(null);
+                      setBzzoiroPlayerResults([]);
                     }}
                     className="min-h-[48px] px-4 py-2.5 rounded-xl bg-red-500 hover:bg-red-400 disabled:opacity-40 text-white font-bold text-xs flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap"
                   >

@@ -1,4 +1,11 @@
 import fs from 'fs';
+import {
+  BZZOIRO_BASE_URL,
+  BZZOIRO_CLUB_POOL,
+  getBzzoiroPlayerImageUrl,
+  getBzzoiroTeamLogoUrl,
+  resolveBzzoiroPlayerImageUrl,
+} from '../src/data/bzzoiroSports';
 
 type TeamId = 'red' | 'blue';
 type EmojiId =
@@ -49,12 +56,16 @@ interface TicTacToeClub {
   id: string;
   name: string;
   shortName: string;
+  bzzoiroTeamId?: number;
+  logoUrl?: string;
 }
 
 interface TicTacToeNation {
   id: string;
   name: string;
   code: string;
+  bzzoiroTeamId?: number;
+  logoUrl?: string;
 }
 
 interface TicTacToeCell {
@@ -63,6 +74,7 @@ interface TicTacToeCell {
   col: number;
   owner: TeamId | null;
   playerName: string | null;
+  playerImageUrl?: string | null;
 }
 
 interface TicTacToeState {
@@ -157,18 +169,7 @@ const MINI_GAME_CATEGORIES: {
 
 const DB_FILE = '/tmp/fanzone-vercel-db.json';
 
-const CLUB_POOL: TicTacToeClub[] = [
-  { id: 'real_madrid', name: 'Real Madrid', shortName: 'RMA' },
-  { id: 'barcelona', name: 'FC Barcelona', shortName: 'BAR' },
-  { id: 'man_city', name: 'Manchester City', shortName: 'MCI' },
-  { id: 'psg', name: 'Paris Saint-Germain', shortName: 'PSG' },
-  { id: 'chelsea', name: 'Chelsea FC', shortName: 'CHE' },
-  { id: 'ac_milan', name: 'AC Milan', shortName: 'MIL' },
-  { id: 'man_united', name: 'Manchester United', shortName: 'MUN' },
-  { id: 'juventus', name: 'Juventus FC', shortName: 'JUV' },
-  { id: 'bayern', name: 'Bayern Munich', shortName: 'BAY' },
-  { id: 'inter_milan', name: 'Inter Milan', shortName: 'INT' },
-];
+const CLUB_POOL: TicTacToeClub[] = BZZOIRO_CLUB_POOL;
 
 const CLUB_IDS = new Set(CLUB_POOL.map((c) => c.id));
 
@@ -242,6 +243,8 @@ function createFreshTicTacToeState(startingTeam: TeamId = 'red'): TicTacToeState
     id: c.id,
     name: c.name,
     code: c.shortName,
+    bzzoiroTeamId: c.bzzoiroTeamId,
+    logoUrl: c.logoUrl,
   }));
   const cells: TicTacToeCell[] = [];
   const hintsByCell: Record<number, string[]> = {};
@@ -399,7 +402,7 @@ function getDb(): ServerlessDB {
       boardDeckId: 1,
       cards: createShuffledCards(),
       activeMiniGame: null,
-      updatedAt: 0,
+      updatedAt: Date.now(),
     },
     contentItems: createDefaultContentItems(),
     timerStartedAt: null,
@@ -556,6 +559,59 @@ export default async function handler(req: any, res: any) {
     : parsedUrl.pathname.startsWith('/api/')
     ? parsedUrl.pathname
     : `/api/${parsedUrl.pathname.replace(/^\/+/, '')}`;
+
+  // 0. GET /api/bzzoiro/search
+  if (method === 'GET' && routePath === '/api/bzzoiro/search') {
+    const q = (parsedUrl.searchParams.get('q') || '').trim();
+    const filterType = parsedUrl.searchParams.get('type') || undefined;
+    if (q.length < 2) {
+      return sendJson(res, 200, { results: [] });
+    }
+    try {
+      const bzzoiroRes = await fetch(
+        `${BZZOIRO_BASE_URL}/search/?q=${encodeURIComponent(q)}`,
+        {
+          headers: { Accept: 'application/json' },
+        }
+      );
+      if (!bzzoiroRes.ok) {
+        return sendJson(res, 200, { results: [] });
+      }
+      const data: any = await bzzoiroRes.json();
+      const rawResults = Array.isArray(data.results) ? data.results : [];
+      const results = rawResults
+        .filter(
+          (r: any) =>
+            r.sport === 'football' &&
+            (r.type === 'player' || r.type === 'team') &&
+            (!filterType || r.type === filterType)
+        )
+        .map((r: any) => {
+          const idMatch = String(r.img || r.url || '').match(/\/(\d+)\//);
+          const numericId = idMatch ? Number(idMatch[1]) : 0;
+          const isPlayer = r.type === 'player';
+          return {
+            id: numericId,
+            type: isPlayer ? 'player' : 'team',
+            name: String(r.name || ''),
+            extra: String(r.extra || ''),
+            imageUrl: numericId
+              ? isPlayer
+                ? getBzzoiroPlayerImageUrl(numericId, true)
+                : getBzzoiroTeamLogoUrl(numericId, true)
+              : `${BZZOIRO_BASE_URL}${r.img}`,
+            fallbackImageUrl: numericId
+              ? isPlayer
+                ? getBzzoiroPlayerImageUrl(numericId, false)
+                : getBzzoiroTeamLogoUrl(numericId, false)
+              : `${BZZOIRO_BASE_URL}${r.img}`,
+          };
+        });
+      return sendJson(res, 200, { results });
+    } catch {
+      return sendJson(res, 200, { results: [] });
+    }
+  }
 
   // 1. GET /api/studio/state
   if (method === 'GET' && routePath === '/api/studio/state') {
@@ -949,6 +1005,9 @@ export default async function handler(req: any, res: any) {
           if (!playerName) break;
           cell.owner = currentTeam;
           cell.playerName = playerName;
+          cell.playerImageUrl =
+            (payload.playerImageUrl ? String(payload.playerImageUrl) : null) ||
+            resolveBzzoiroPlayerImageUrl(playerName);
           ttt.rejectedFeedback = null;
           const outcome = evaluateTicTacToeBoard(ttt);
           if (outcome.winner) {

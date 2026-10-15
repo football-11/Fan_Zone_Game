@@ -19,6 +19,13 @@ import {
   TicTacToeNation,
   TicTacToeState,
 } from './src/types/game.ts';
+import {
+  BZZOIRO_BASE_URL,
+  BZZOIRO_CLUB_POOL,
+  getBzzoiroPlayerImageUrl,
+  getBzzoiroTeamLogoUrl,
+  resolveBzzoiroPlayerImageUrl,
+} from './src/data/bzzoiroSports.ts';
 
 dotenv.config();
 
@@ -118,18 +125,7 @@ generateSampleWavFile(path.join(SAMPLES_DIR, 'ucl_fanfare.wav'), [
 ]);
 
 // Football Tic-Tac-Toe Club Pool & Club-vs-Club Intersection Player Hints
-const CLUB_POOL: TicTacToeClub[] = [
-  { id: 'real_madrid', name: 'Real Madrid', shortName: 'RMA' },
-  { id: 'barcelona', name: 'FC Barcelona', shortName: 'BAR' },
-  { id: 'man_city', name: 'Manchester City', shortName: 'MCI' },
-  { id: 'psg', name: 'Paris Saint-Germain', shortName: 'PSG' },
-  { id: 'chelsea', name: 'Chelsea FC', shortName: 'CHE' },
-  { id: 'ac_milan', name: 'AC Milan', shortName: 'MIL' },
-  { id: 'man_united', name: 'Manchester United', shortName: 'MUN' },
-  { id: 'juventus', name: 'Juventus FC', shortName: 'JUV' },
-  { id: 'bayern', name: 'Bayern Munich', shortName: 'BAY' },
-  { id: 'inter_milan', name: 'Inter Milan', shortName: 'INT' },
-];
+const CLUB_POOL: TicTacToeClub[] = BZZOIRO_CLUB_POOL;
 
 const CLUB_IDS = new Set(CLUB_POOL.map((c) => c.id));
 
@@ -203,6 +199,8 @@ function createFreshTicTacToeState(startingTeam: TeamId = 'red'): TicTacToeState
     id: c.id,
     name: c.name,
     code: c.shortName,
+    bzzoiroTeamId: c.bzzoiroTeamId,
+    logoUrl: c.logoUrl,
   }));
   const cells = [];
   const hintsByCell: Record<number, string[]> = {};
@@ -1027,6 +1025,9 @@ async function startServer() {
           if (!playerName) break;
           cell.owner = currentTeam;
           cell.playerName = playerName;
+          cell.playerImageUrl =
+            (payload.playerImageUrl ? String(payload.playerImageUrl) : null) ||
+            resolveBzzoiroPlayerImageUrl(playerName);
           ttt.rejectedFeedback = null;
 
           const outcome = evaluateTicTacToeBoard(ttt);
@@ -1153,6 +1154,62 @@ async function startServer() {
   });
 
   // REST API Endpoints
+  // 0. Bzzoiro Sports API Search Proxy (/api/bzzoiro/search)
+  app.get('/api/bzzoiro/search', async (req, res) => {
+    const q = String(req.query.q || '').trim();
+    const filterType = req.query.type ? String(req.query.type) : undefined;
+    if (q.length < 2) {
+      res.json({ results: [] });
+      return;
+    }
+
+    try {
+      const bzzoiroRes = await fetch(
+        `${BZZOIRO_BASE_URL}/search/?q=${encodeURIComponent(q)}`,
+        {
+          headers: { Accept: 'application/json' },
+        }
+      );
+      if (!bzzoiroRes.ok) {
+        res.json({ results: [] });
+        return;
+      }
+      const data: any = await bzzoiroRes.json();
+      const rawResults = Array.isArray(data.results) ? data.results : [];
+      const results = rawResults
+        .filter(
+          (r: any) =>
+            r.sport === 'football' &&
+            (r.type === 'player' || r.type === 'team') &&
+            (!filterType || r.type === filterType)
+        )
+        .map((r: any) => {
+          const idMatch = String(r.img || r.url || '').match(/\/(\d+)\//);
+          const numericId = idMatch ? Number(idMatch[1]) : 0;
+          const isPlayer = r.type === 'player';
+          return {
+            id: numericId,
+            type: isPlayer ? 'player' : 'team',
+            name: String(r.name || ''),
+            extra: String(r.extra || ''),
+            imageUrl: numericId
+              ? isPlayer
+                ? getBzzoiroPlayerImageUrl(numericId, true)
+                : getBzzoiroTeamLogoUrl(numericId, true)
+              : `${BZZOIRO_BASE_URL}${r.img}`,
+            fallbackImageUrl: numericId
+              ? isPlayer
+                ? getBzzoiroPlayerImageUrl(numericId, false)
+                : getBzzoiroTeamLogoUrl(numericId, false)
+              : `${BZZOIRO_BASE_URL}${r.img}`,
+          };
+        });
+      res.json({ results });
+    } catch {
+      res.json({ results: [] });
+    }
+  });
+
   // 1. Studio Public Read-Only State (Sanitized)
   app.get('/api/studio/state', (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');

@@ -60,20 +60,25 @@ export interface TicTacToeClub {
   id: string;
   name: string;
   shortName: string;
+  bzzoiroTeamId?: number;
+  logoUrl?: string;
 }
 
 export interface TicTacToeNation {
   id: string;
   name: string;
   code: string;
+  bzzoiroTeamId?: number;
+  logoUrl?: string;
 }
 
 export interface TicTacToeCell {
   index: number; // 0..8 (Square 1..9)
-  row: number; // 0..2 (Nation)
-  col: number; // 0..2 (Club)
+  row: number; // 0..2 (Row Club)
+  col: number; // 0..2 (Col Club)
   owner: TeamId | null;
   playerName: string | null;
+  playerImageUrl?: string | null;
 }
 
 export interface TicTacToeState {

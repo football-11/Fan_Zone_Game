@@ -1,5 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { EmojiId, MiniGameCategory } from '../types/game';
+import {
+  getBzzoiroClubLogoById,
+  resolveBzzoiroPlayerImageUrl,
+} from '../data/bzzoiroSports';
 
 export const EmojiBadgeArtwork: React.FC<{ emojiId: EmojiId; className?: string }> = ({
   emojiId,
@@ -443,7 +447,7 @@ export const CategoryBadgeArtwork: React.FC<{
   );
 };
 
-export const ClubCrestArtwork: React.FC<{ clubId: string; className?: string }> = ({
+const ClubCrestFallbackSvg: React.FC<{ clubId: string; className?: string }> = ({
   clubId,
   className = 'w-12 h-12',
 }) => {
@@ -563,6 +567,103 @@ export const ClubCrestArtwork: React.FC<{ clubId: string; className?: string }> 
         </svg>
       );
   }
+};
+
+export const ClubCrestArtwork: React.FC<{
+  clubId: string;
+  logoUrl?: string;
+  className?: string;
+}> = ({ clubId, logoUrl, className = 'w-12 h-12' }) => {
+  const [imgFailed, setImgFailed] = useState(false);
+  const resolvedLogoUrl = logoUrl || getBzzoiroClubLogoById(clubId);
+
+  useEffect(() => {
+    setImgFailed(false);
+  }, [clubId, resolvedLogoUrl]);
+
+  if (resolvedLogoUrl && !imgFailed) {
+    return (
+      <img
+        src={resolvedLogoUrl}
+        alt={clubId}
+        onError={() => setImgFailed(true)}
+        className={`${className} object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.45)] select-none`}
+      />
+    );
+  }
+
+  return <ClubCrestFallbackSvg clubId={clubId} className={className} />;
+};
+
+export const PlayerPortraitArtwork: React.FC<{
+  playerName?: string | null;
+  playerImageUrl?: string | null;
+  teamColor?: 'red' | 'blue' | 'neutral';
+  className?: string;
+}> = ({ playerName, playerImageUrl, teamColor = 'neutral', className = 'w-12 h-12' }) => {
+  const primaryUrl = playerImageUrl || resolveBzzoiroPlayerImageUrl(playerName);
+  const [currentSrc, setCurrentSrc] = useState<string | null>(primaryUrl);
+  const [failedAll, setFailedAll] = useState(false);
+
+  useEffect(() => {
+    const nextUrl = playerImageUrl || resolveBzzoiroPlayerImageUrl(playerName);
+    setCurrentSrc(nextUrl);
+    setFailedAll(false);
+  }, [playerName, playerImageUrl]);
+
+  const borderClass =
+    teamColor === 'red'
+      ? 'border-red-300/90 bg-red-950/80 shadow-[0_0_16px_rgba(239,68,68,0.4)]'
+      : teamColor === 'blue'
+      ? 'border-sky-300/90 bg-sky-950/80 shadow-[0_0_16px_rgba(56,189,248,0.4)]'
+      : 'border-slate-600 bg-slate-900/90';
+
+  if (currentSrc && !failedAll) {
+    return (
+      <div
+        className={`${className} rounded-full border-2 ${borderClass} overflow-hidden flex items-center justify-center shrink-0 shadow-lg`}
+      >
+        <img
+          src={currentSrc}
+          alt={playerName || 'Player'}
+          referrerPolicy="no-referrer"
+          onError={() => {
+            if (currentSrc.includes('?')) {
+              setCurrentSrc(currentSrc.split('?')[0]);
+            } else {
+              setFailedAll(true);
+            }
+          }}
+          className="w-full h-full object-cover object-top select-none"
+        />
+      </div>
+    );
+  }
+
+  const initials = (playerName || 'FP')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() || '')
+    .join('');
+
+  return (
+    <div
+      className={`${className} rounded-full border-2 ${borderClass} flex flex-col items-center justify-center shrink-0 font-['Outfit'] font-black text-white select-none relative overflow-hidden shadow-lg`}
+    >
+      {/* Background Player Athlete Silhouette */}
+      <svg
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        className="absolute inset-0 w-full h-full text-white/20 scale-90 translate-y-1 pointer-events-none"
+      >
+        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+      </svg>
+      <span className="relative z-10 text-xs sm:text-base lg:text-xl xl:text-2xl font-black tracking-tight drop-shadow-md">
+        {initials || 'FP'}
+      </span>
+    </div>
+  );
 };
 
 export const NationFlagArtwork: React.FC<{ nationId: string; className?: string }> = ({

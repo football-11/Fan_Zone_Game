@@ -128,3 +128,54 @@
 .animate-answer-reveal {
   animation: fanzoneAnswerRevealPop 440ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
+
+@keyframes fanzoneScorePulse {
+  0% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  35% {
+    transform: scale(1.32);
+    filter: brightness(1.6) drop-shadow(0 0 24px rgba(245, 158, 11, 0.7));
+  }
+  70% {
+    transform: scale(0.96);
+    filter: brightness(1.2);
+  }
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+}
+
+@keyframes fanzoneGlowPulse {
+  0%, 100% {
+    opacity: 0.75;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+}
+
+@keyframes fanzoneShimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+.animate-score-pulse {
+  animation: fanzoneScorePulse 750ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.animate-glow-pulse {
+  animation: fanzoneGlowPulse 2.4s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  animation: fanzoneShimmer 2s infinite linear;
+}

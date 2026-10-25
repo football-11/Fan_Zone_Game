@@ -61,25 +61,94 @@ const HostConsoleBody: React.FC = () => {
       ? contentItems.filter((item) => item.category === activeCategory)
       : [];
 
+  // Strictly filter out questions and images already picked in this session
+  const unusedCategoryItems = categoryItems.filter(
+    (item) => !state?.usedItemIds?.includes(item.id)
+  );
+  const pickedCategoryItems = categoryItems.filter(
+    (item) => state?.usedItemIds?.includes(item.id)
+  );
+
+  const ttt = mg?.ticTacToe;
+  const activeCellIndex = ttt?.selectedCellIndex ?? 0;
+  const activeCell = ttt?.cells[activeCellIndex];
+  const activeCellClub = ttt && activeCell ? ttt.clubs[activeCell.col] : null;
+  const activeCellNation = ttt && activeCell ? ttt.nations[activeCell.row] : null;
+
+  // Track all footballers already placed on the 3x3 board so none can be picked twice
+  const usedPlayerNamesOnBoard = new Set<string>(
+    (ttt?.cells || [])
+      .map((c) => c.playerName?.trim().toLowerCase())
+      .filter((name): name is string => Boolean(name))
+  );
+
+  const rawActiveCellHints = (ttt?.hintsByCell && ttt.hintsByCell[activeCellIndex]) || [];
+  // Exclude players already used in other cells so no player is picked twice
+  const activeCellHints = rawActiveCellHints.filter(
+    (name) => !usedPlayerNamesOnBoard.has(name.trim().toLowerCase())
+  );
+  const alreadyUsedHints = rawActiveCellHints.filter((name) =>
+    usedPlayerNamesOnBoard.has(name.trim().toLowerCase())
+  );
+
+  const isPlayerAlreadyUsedOnBoard =
+    spokenPlayerName.trim().length > 0 &&
+    usedPlayerNamesOnBoard.has(spokenPlayerName.trim().toLowerCase()) &&
+    activeCell?.playerName?.trim().toLowerCase() !== spokenPlayerName.trim().toLowerCase();
+
   // Sync inline editor fields when active mini-game snapshot changes
   useEffect(() => {
     if (mg && mg.snapshot) {
-      setSelectedItemId(mg.snapshot.itemId || '');
+      setSelectedItemId(mg.snapshot.itemId || 'auto');
       setInlineTitle(mg.snapshot.title || '');
       setInlinePrompt(mg.snapshot.prompt || '');
       setInlineAnswer(mg.snapshot.answer || '');
       setInlineBlurAmount(
         typeof mg.snapshot.blurAmount === 'number' ? mg.snapshot.blurAmount : 28
       );
-    } else if (categoryItems.length > 0) {
-      const first = categoryItems[0];
+    } else if (unusedCategoryItems.length > 0) {
+      // Pick first UNUSED item so an already picked question or image is NEVER pre-selected
+      const first = unusedCategoryItems[0];
       setSelectedItemId(first.id);
       setInlineTitle(first.title);
       setInlinePrompt(first.prompt);
       setInlineAnswer(first.answer);
       setInlineBlurAmount(typeof first.blurAmount === 'number' ? first.blurAmount : 28);
+    } else {
+      setSelectedItemId('auto');
     }
-  }, [mg?.cardNumber, mg?.snapshot?.itemId, activeCategory, contentItems.length]);
+  }, [mg?.cardNumber, mg?.snapshot?.itemId, activeCategory, contentItems.length, state?.usedItemIds?.length]);
+
+  // Automatic question & photo selection action
+  const handleAutoSelectQuestionAndPhoto = () => {
+    sendHostAction('minigame:autoSelect');
+  };
+
+  // Auto-select valid footballer & photo when active Tic-Tac-Toe cell changes
+  useEffect(() => {
+    if (mg?.category === 'tictactoe' && activeCell && !activeCell.owner && !ttt?.winner) {
+      if (activeCellHints && activeCellHints.length > 0) {
+        if (!spokenPlayerName || !activeCellHints.includes(spokenPlayerName)) {
+          const autoPlayer = activeCellHints[0];
+          setSpokenPlayerName(autoPlayer);
+          setSelectedPlayerImageUrl(resolveBzzoiroPlayerImageUrl(autoPlayer));
+        }
+      } else {
+        setSpokenPlayerName('');
+        setSelectedPlayerImageUrl(null);
+      }
+    }
+  }, [activeCellIndex, mg?.category, activeCell?.owner, activeCellHints.length, ttt?.winner]);
+
+  // Cycle / auto-pick next valid footballer for the active Tic-Tac-Toe square
+  const handleAutoPickNextTicTacToePlayer = () => {
+    if (!activeCellHints || activeCellHints.length === 0) return;
+    const currentIndex = activeCellHints.indexOf(spokenPlayerName);
+    const nextIndex = (currentIndex + 1) % activeCellHints.length;
+    const nextPlayer = activeCellHints[nextIndex];
+    setSpokenPlayerName(nextPlayer);
+    setSelectedPlayerImageUrl(resolveBzzoiroPlayerImageUrl(nextPlayer));
+  };
 
   // Live Bzzoiro Sports API player search when Host types a footballer name in Tic-Tac-Toe
   useEffect(() => {
@@ -113,6 +182,10 @@ const HostConsoleBody: React.FC = () => {
 
   const handleSelectContentDropdown = (itemId: string) => {
     setSelectedItemId(itemId);
+    if (itemId === 'auto') {
+      handleAutoSelectQuestionAndPhoto();
+      return;
+    }
     const found = categoryItems.find((i) => i.id === itemId);
     if (found) {
       setInlineTitle(found.title);
@@ -128,7 +201,7 @@ const HostConsoleBody: React.FC = () => {
 
   const handleApplySelectedItem = () => {
     sendHostAction('minigame:useItem', {
-      itemId: selectedItemId,
+      itemId: selectedItemId === 'auto' ? undefined : selectedItemId,
       title: inlineTitle,
       prompt: inlinePrompt,
       answer: inlineAnswer,
@@ -143,13 +216,6 @@ const HostConsoleBody: React.FC = () => {
       </div>
     );
   }
-
-  const ttt = mg?.ticTacToe;
-  const activeCellIndex = ttt?.selectedCellIndex ?? 0;
-  const activeCell = ttt?.cells[activeCellIndex];
-  const activeCellClub = ttt && activeCell ? ttt.clubs[activeCell.col] : null;
-  const activeCellNation = ttt && activeCell ? ttt.nations[activeCell.row] : null;
-  const activeCellHints = (ttt?.hintsByCell && ttt.hintsByCell[activeCellIndex]) || [];
 
   return (
     <div className="min-h-screen bg-[#030914] text-slate-100 flex flex-col font-['Plus_Jakarta_Sans']">
@@ -474,6 +540,20 @@ const HostConsoleBody: React.FC = () => {
               )}
             </div>
 
+            {/* Automatic Question & Photo Selection Status */}
+            <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-[#030914] border border-amber-500/30 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="font-semibold text-slate-200">
+                  Automatic Selection:
+                </span>
+                <span className="text-amber-400 font-extrabold tracking-wide uppercase">ACTIVE</span>
+              </div>
+              <span className="text-[11px] text-slate-400 hidden sm:inline">
+                Auto-picks questions & photos for every mini-game
+              </span>
+            </div>
+
             {/* Two Separate Primary Actions: Reveal Selected Card vs Open Mini Game */}
             <div className="grid grid-cols-2 gap-3">
               <button
@@ -497,13 +577,13 @@ const HostConsoleBody: React.FC = () => {
                 onClick={() =>
                   sendHostAction('card:openMiniGame', {
                     cardNumber: state.selectedCardNumber,
-                    itemId: selectedItemId || undefined,
+                    itemId: selectedItemId === 'auto' ? undefined : (selectedItemId || undefined),
                   })
                 }
-                className="min-h-[48px] px-4 py-2.5 rounded-xl bg-[#F59E0B] hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer whitespace-nowrap"
+                className="min-h-[48px] px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer whitespace-nowrap shadow-md shadow-amber-500/20 active:scale-95"
               >
-                <Sparkles className="w-4 h-4 shrink-0" />
-                <span>Open Mini Game</span>
+                <Sparkles className="w-4 h-4 shrink-0 text-slate-950" />
+                <span>Open Mini Game (Auto-Select)</span>
               </button>
             </div>
 
@@ -709,9 +789,25 @@ const HostConsoleBody: React.FC = () => {
 
                 {/* Quick-Fill Reference Hints with Bzzoiro Player Portraits */}
                 <div>
-                  <span className="block text-[11px] text-slate-400 mb-1.5">
-                    Quick-Fill Valid Footballers (Bzzoiro Sports Data · Tap to populate):
-                  </span>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] text-slate-300 font-semibold flex items-center gap-1.5">
+                      <span>Valid Footballers (Square #{activeCellIndex + 1}):</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold">
+                        Auto-Selected
+                      </span>
+                    </span>
+                    {activeCellHints.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={handleAutoPickNextTicTacToePlayer}
+                        className="px-2 py-0.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                        title="Cycle to next valid footballer and portrait for this square"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                        <span>🎲 Auto-Pick Next Footballer</span>
+                      </button>
+                    )}
+                  </div>
                   <div className="flex flex-wrap gap-1.5">
                     {activeCellHints.map((hintName) => {
                       const hintImg = resolveBzzoiroPlayerImageUrl(hintName);
@@ -740,6 +836,19 @@ const HostConsoleBody: React.FC = () => {
                       );
                     })}
                   </div>
+                  {alreadyUsedHints.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[10px] text-slate-500">
+                      <span>Already picked on board:</span>
+                      {alreadyUsedHints.map((hintName) => (
+                        <span
+                          key={hintName}
+                          className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-500 line-through"
+                        >
+                          {hintName}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Footballer Search & Input with Live Bzzoiro Sports API Results */}
@@ -769,9 +878,22 @@ const HostConsoleBody: React.FC = () => {
                         selectedPlayerImageUrl || resolveBzzoiroPlayerImageUrl(spokenPlayerName)
                           ? 'pl-11'
                           : 'pl-3.5'
-                      } pr-3.5 py-2 rounded-xl bg-[#081326] border border-slate-700 text-sm text-white focus:outline-none focus:border-amber-400`}
+                      } pr-3.5 py-2 rounded-xl bg-[#081326] border ${
+                        isPlayerAlreadyUsedOnBoard
+                          ? 'border-red-500/80 focus:border-red-400'
+                          : 'border-slate-700 focus:border-amber-400'
+                      } text-sm text-white focus:outline-none`}
                     />
                   </div>
+
+                  {isPlayerAlreadyUsedOnBoard && (
+                    <div className="p-2 rounded-xl bg-red-950/80 border border-red-500/50 text-xs text-red-300 font-semibold flex items-center gap-1.5">
+                      <XCircle className="w-4 h-4 text-red-400 shrink-0" />
+                      <span>
+                        "{spokenPlayerName.trim()}" is already picked on the board! Once picked, a footballer cannot be picked again.
+                      </span>
+                    </div>
+                  )}
 
                   {/* Live Bzzoiro Player Search Matches */}
                   {(searchingBzzoiro || bzzoiroPlayerResults.length > 0) && (
@@ -815,7 +937,9 @@ const HostConsoleBody: React.FC = () => {
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
-                    disabled={Boolean(activeCell?.owner || mg.ticTacToe.winner)}
+                    disabled={Boolean(
+                      activeCell?.owner || mg.ticTacToe.winner || isPlayerAlreadyUsedOnBoard
+                    )}
                     onClick={() => {
                       const nameToUse =
                         spokenPlayerName.trim() || activeCellHints[0] || 'Accepted Player';
@@ -880,36 +1004,99 @@ const HostConsoleBody: React.FC = () => {
                 mg ? 'animate-minigame-open' : 'animate-board-return'
               }`}
             >
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-bold font-['Outfit'] text-white">
-                  Mini-Game Content & Live Stage Controls
-                </h2>
-                {mg && (
-                  <span className="font-['JetBrains_Mono'] font-bold text-sm text-amber-400 tabular-nums">
-                    Timer: 00:{String(mg.timerSeconds).padStart(2, '0')}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-sm font-bold font-['Outfit'] text-white">
+                    Mini-Game Content & Live Stage Controls
+                  </h2>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                    ⚡ Auto Selection
                   </span>
-                )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {mg && (
+                    <button
+                      type="button"
+                      onClick={handleAutoSelectQuestionAndPhoto}
+                      className="min-h-[38px] px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-extrabold text-xs flex items-center gap-1.5 shadow-md shadow-amber-500/20 transition-all cursor-pointer whitespace-nowrap active:scale-95"
+                      title="Automatically select next question and photo from library and sports database"
+                    >
+                      <Sparkles className="w-4 h-4 text-slate-950 shrink-0" />
+                      <span>🎲 Auto-Select Question & Photo</span>
+                    </button>
+                  )}
+                  {mg && (
+                    <span className="font-['JetBrains_Mono'] font-bold text-sm text-amber-400 tabular-nums">
+                      Timer: 00:{String(mg.timerSeconds).padStart(2, '0')}
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Content Item Selector & Inline Editor */}
               {activeCategory !== 'tictactoe' && (
                 <div className="p-3 rounded-xl bg-[#030914] border border-slate-800 space-y-2.5">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">
-                      Select Saved {activeCategory?.toUpperCase()} Item ({categoryItems.length}{' '}
-                      available):
-                    </label>
+                    <div className="flex flex-wrap items-center justify-between gap-1.5 mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs font-semibold text-slate-300">
+                          {activeCategory?.toUpperCase()} Questions & Photos:
+                        </label>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-300">
+                          <span className="text-emerald-400 font-extrabold">{unusedCategoryItems.length}</span> available
+                          {pickedCategoryItems.length > 0 && (
+                            <span className="text-slate-400"> · <span className="text-amber-400 font-bold">{pickedCategoryItems.length}</span> removed</span>
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        {pickedCategoryItems.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => sendHostAction('session:resetUsedItems')}
+                            className="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-[10px] font-bold text-slate-300 cursor-pointer transition-colors"
+                            title="Restore all removed questions and images back into the pool"
+                          >
+                            Reset Removed Pool
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={handleAutoSelectQuestionAndPhoto}
+                          className="px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>🎲 Auto-Pick Next Item</span>
+                        </button>
+                      </div>
+                    </div>
                     <select
                       value={selectedItemId}
                       onChange={(e) => handleSelectContentDropdown(e.target.value)}
                       className="w-full min-h-[44px] px-3 py-2 rounded-xl bg-[#081326] border border-slate-700 text-xs text-white focus:outline-none focus:border-amber-400"
                     >
-                      {categoryItems.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.title} — [{item.answer}]
-                          {isImageGuessCategory ? ` (${item.blurAmount ?? 28}px blur)` : ''}
-                        </option>
-                      ))}
+                      <option value="auto">
+                        ✨ [Auto-Selected] {inlineTitle ? `${inlineTitle} — [${inlineAnswer}]` : 'Automatic Question & Photo'}
+                      </option>
+                      {unusedCategoryItems.length > 0 && (
+                        <optgroup label={`Available Unpicked Items (${unusedCategoryItems.length})`}>
+                          {unusedCategoryItems.map((item) => (
+                            <option key={item.id} value={item.id}>
+                              {item.title} — [{item.answer}]
+                              {isImageGuessCategory ? ` (${item.blurAmount ?? 28}px blur)` : ''}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {pickedCategoryItems.length > 0 && (
+                        <optgroup label={`Already Picked (Removed from Mini Games · ${pickedCategoryItems.length})`}>
+                          {pickedCategoryItems.map((item) => (
+                            <option key={item.id} value={item.id} disabled className="text-slate-500 bg-slate-900">
+                              🚫 [REMOVED] {item.title} — [{item.answer}]
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
                     </select>
                   </div>
 

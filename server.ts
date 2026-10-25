@@ -26,6 +26,10 @@ import {
   getBzzoiroTeamLogoUrl,
   resolveBzzoiroPlayerImageUrl,
 } from './src/data/bzzoiroSports.ts';
+import {
+  getAutomaticContentItem,
+  AUTOMATIC_CONTENT_ITEMS,
+} from './src/data/automaticContentPool.ts';
 
 dotenv.config();
 
@@ -661,34 +665,42 @@ async function startServer() {
     }
   }, 1000);
 
-  // Build initial snapshot for a category
-  function createSnapshotForCategory(category: MiniGameCategory, preferredItemId?: string) {
+  // Build initial snapshot for a category with automatic question and photo selection
+  function createSnapshotForCategory(
+    category: MiniGameCategory,
+    preferredItemId?: string,
+    forceDifferentFromId?: string
+  ) {
     if (category === 'tictactoe') return null;
-    const categoryItems = dbState.contentItems.filter((item) => item.category === category);
-    const chosen =
-      (preferredItemId && categoryItems.find((i) => i.id === preferredItemId)) ||
-      categoryItems[0];
-    if (!chosen) {
-      return {
-        itemId: 'fallback',
-        category: category as ContentCategory,
-        title: `${category.toUpperCase()} Challenge`,
-        prompt: `Identify this ${category} challenge!`,
-        answer: 'Sample Official Answer',
-        mediaUrl:
-          category === 'jersey'
-            ? '/samples/sample_jersey_kit.jpg'
-            : category === 'photo'
-            ? '/samples/sample_player_action.jpg'
-            : category === 'stadium'
-            ? '/samples/sample_stadium_night.jpg'
-            : category === 'logo'
-            ? '/samples/sample_club_crest.jpg'
-            : category === 'audio'
-            ? '/samples/stadium_anthem.wav'
-            : undefined,
-      };
+    const session = dbState.session;
+    if (!Array.isArray(session.usedItemIds)) {
+      session.usedItemIds = [];
     }
+    if (session.autoSelectionEnabled === undefined) {
+      session.autoSelectionEnabled = true;
+    }
+
+    const categoryItems = dbState.contentItems.filter((item) => item.category === category);
+    let chosen: ContentItem | undefined;
+
+    if (preferredItemId && preferredItemId !== 'auto') {
+      chosen = categoryItems.find((i) => i.id === preferredItemId);
+    }
+
+    // If no specific item requested or set to auto, automatically select question & photo
+    if (!chosen) {
+      chosen = getAutomaticContentItem(
+        category,
+        categoryItems,
+        session.usedItemIds,
+        forceDifferentFromId
+      );
+    }
+
+    if (chosen && chosen.id && !session.usedItemIds.includes(chosen.id)) {
+      session.usedItemIds.push(chosen.id);
+    }
+
     // Snapshot Isolation: deep-clone item fields so later edits/deletes in /content never break an active round
     return {
       itemId: chosen.id,
@@ -844,6 +856,7 @@ async function startServer() {
         session.activeMiniGame = null;
         session.boardDeckId = (session.boardDeckId || 1) + 1;
         session.cards = createShuffledCards();
+        session.usedItemIds = [];
         cachedTicTacToe = createFreshTicTacToeState('red');
         break;
       }
@@ -876,6 +889,36 @@ async function startServer() {
           mg.imageUnblurred = false;
           mg.audioPlaying = false;
         }
+        break;
+      }
+
+      case 'minigame:autoSelect': {
+        const mg = session.activeMiniGame;
+        if (!mg || mg.category === 'tictactoe') break;
+        const currentItemId = mg.snapshot?.itemId;
+        const freshSnapshot = createSnapshotForCategory(mg.category, 'auto', currentItemId);
+        if (freshSnapshot) {
+          mg.snapshot = freshSnapshot;
+          mg.timerSeconds = 30;
+          mg.timerRunning = false;
+          mg.answerRevealed = false;
+          mg.imageUnblurred = false;
+          mg.audioPlaying = false;
+          mg.scored = false;
+          mg.scoreResult = 'pending';
+          mg.awardedTeam = null;
+        }
+        break;
+      }
+
+      case 'session:toggleAutoSelection': {
+        session.autoSelectionEnabled =
+          payload.enabled !== undefined ? Boolean(payload.enabled) : !session.autoSelectionEnabled;
+        break;
+      }
+
+      case 'session:resetUsedItems': {
+        session.usedItemIds = [];
         break;
       }
 

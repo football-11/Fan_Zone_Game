@@ -21,6 +21,7 @@ import {
   BZZOIRO_CLUB_POOL,
   resolveBzzoiroPlayerImageUrl,
 } from '../data/bzzoiroSports';
+import { getAutomaticContentItem } from '../data/automaticContentPool';
 
 interface OwnerAuthState {
   authenticated: boolean;
@@ -939,31 +940,41 @@ export const GameSyncProvider: React.FC<{
                 ticTacToe: createFallbackTicTacToe(next.activeTeam),
               };
             } else {
+              if (!Array.isArray(next.usedItemIds)) {
+                next.usedItemIds = [];
+              }
+              if (next.autoSelectionEnabled === undefined) {
+                next.autoSelectionEnabled = true;
+              }
+
               const catItems = contentItems.filter((i) => i.category === card.category);
-              const chosen =
-                (payload.itemId && catItems.find((i) => i.id === payload.itemId)) || catItems[0];
+              let chosen: ContentItem | undefined;
+
+              if (payload.itemId && payload.itemId !== 'auto') {
+                chosen = catItems.find((i) => i.id === payload.itemId);
+              }
+
+              if (!chosen) {
+                chosen = getAutomaticContentItem(card.category, catItems, next.usedItemIds);
+              }
+
+              if (chosen && chosen.id && !next.usedItemIds.includes(chosen.id)) {
+                next.usedItemIds.push(chosen.id);
+              }
+
               next.activeMiniGame = {
                 cardNumber: card.cardNumber,
                 category: card.category,
                 categoryTitle: card.categoryTitle,
-                snapshot: chosen
-                  ? {
-                      itemId: chosen.id,
-                      category: chosen.category,
-                      title: chosen.title,
-                      prompt: chosen.prompt,
-                      answer: chosen.answer,
-                      mediaUrl: chosen.mediaUrl,
-                      blurAmount: typeof chosen.blurAmount === 'number' ? chosen.blurAmount : 28,
-                    }
-                  : {
-                      itemId: 'fallback',
-                      category: card.category as ContentCategory,
-                      title: card.categoryTitle,
-                      prompt: card.categoryTitle,
-                      answer: 'Official Answer',
-                      blurAmount: 28,
-                    },
+                snapshot: {
+                  itemId: chosen.id,
+                  category: chosen.category,
+                  title: chosen.title,
+                  prompt: chosen.prompt,
+                  answer: chosen.answer,
+                  mediaUrl: chosen.mediaUrl,
+                  blurAmount: typeof chosen.blurAmount === 'number' ? chosen.blurAmount : 28,
+                },
                 timerSeconds: 30,
                 timerRunning: false,
                 answerRevealed: false,
@@ -1001,11 +1012,13 @@ export const GameSyncProvider: React.FC<{
             next.activeMiniGame = null;
             next.boardDeckId = (next.boardDeckId || 1) + 1;
             next.cards = createFallbackCards();
+            next.usedItemIds = [];
             break;
 
           case 'minigame:useItem': {
             const mg = next.activeMiniGame;
             if (!mg || mg.category === 'tictactoe') break;
+            if (!Array.isArray(next.usedItemIds)) next.usedItemIds = [];
             const catItems = contentItems.filter((i) => i.category === mg.category);
             const chosen =
               (payload.itemId && catItems.find((i) => i.id === payload.itemId)) || catItems[0];
@@ -1013,8 +1026,12 @@ export const GameSyncProvider: React.FC<{
               const baseSnap = chosen || mg.snapshot!;
               const customBlur =
                 payload.blurAmount !== undefined ? Number(payload.blurAmount) : undefined;
+              const itemId = baseSnap.id || (baseSnap as any).itemId || 'custom';
+              if (itemId && !next.usedItemIds.includes(itemId)) {
+                next.usedItemIds.push(itemId);
+              }
               mg.snapshot = {
-                itemId: baseSnap.id || (baseSnap as any).itemId || 'custom',
+                itemId,
                 category: mg.category as ContentCategory,
                 title: payload.title?.trim() || baseSnap.title,
                 prompt: payload.prompt?.trim() || baseSnap.prompt,
@@ -1031,6 +1048,49 @@ export const GameSyncProvider: React.FC<{
               mg.imageUnblurred = false;
               mg.audioPlaying = false;
             }
+            break;
+          }
+
+          case 'minigame:autoSelect': {
+            const mg = next.activeMiniGame;
+            if (!mg || mg.category === 'tictactoe') break;
+            if (!Array.isArray(next.usedItemIds)) next.usedItemIds = [];
+            const catItems = contentItems.filter((i) => i.category === mg.category);
+            const currentId = mg.snapshot?.itemId;
+            const fresh = getAutomaticContentItem(mg.category, catItems, next.usedItemIds, currentId);
+            if (fresh) {
+              if (!next.usedItemIds.includes(fresh.id)) {
+                next.usedItemIds.push(fresh.id);
+              }
+              mg.snapshot = {
+                itemId: fresh.id,
+                category: fresh.category,
+                title: fresh.title,
+                prompt: fresh.prompt,
+                answer: fresh.answer,
+                mediaUrl: fresh.mediaUrl,
+                blurAmount: typeof fresh.blurAmount === 'number' ? fresh.blurAmount : 28,
+              };
+              mg.timerSeconds = 30;
+              mg.timerRunning = false;
+              mg.answerRevealed = false;
+              mg.imageUnblurred = false;
+              mg.audioPlaying = false;
+              mg.scored = false;
+              mg.scoreResult = 'pending';
+              mg.awardedTeam = null;
+            }
+            break;
+          }
+
+          case 'session:toggleAutoSelection': {
+            next.autoSelectionEnabled =
+              payload.enabled !== undefined ? Boolean(payload.enabled) : !next.autoSelectionEnabled;
+            break;
+          }
+
+          case 'session:resetUsedItems': {
+            next.usedItemIds = [];
             break;
           }
 

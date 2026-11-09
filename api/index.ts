@@ -6,6 +6,10 @@ import {
   getBzzoiroTeamLogoUrl,
   resolveBzzoiroPlayerImageUrl,
 } from '../src/data/bzzoiroSports';
+import {
+  getAutomaticContentItem,
+  AUTOMATIC_CONTENT_ITEMS,
+} from '../src/data/automaticContentPool';
 
 type TeamId = 'red' | 'blue';
 type EmojiId =
@@ -34,6 +38,7 @@ interface ContentItem {
   title: string;
   prompt: string;
   answer: string;
+  options?: string[];
   mediaUrl?: string;
   blurAmount?: number;
   createdAt: string;
@@ -105,6 +110,7 @@ interface ActiveMiniGameState {
     title: string;
     prompt: string;
     answer?: string;
+    options?: string[];
     mediaUrl?: string;
     blurAmount?: number;
   } | null;
@@ -135,6 +141,8 @@ interface GameSessionState {
   boardDeckId?: number;
   cards: BoardCard[];
   activeMiniGame: ActiveMiniGameState | null;
+  usedItemIds?: string[];
+  autoSelectionEnabled?: boolean;
   updatedAt: number;
 }
 
@@ -402,7 +410,7 @@ function getDb(): ServerlessDB {
       boardDeckId: 1,
       cards: createShuffledCards(),
       activeMiniGame: null,
-      updatedAt: 0,
+      updatedAt: Date.now(),
     },
     contentItems: createDefaultContentItems(),
     timerStartedAt: null,
@@ -792,32 +800,42 @@ export default async function handler(req: any, res: any) {
             ticTacToe: createFreshTicTacToeState(session.activeTeam),
           };
         } else {
+          if (!Array.isArray(session.usedItemIds)) {
+            session.usedItemIds = [];
+          }
+          if (session.autoSelectionEnabled === undefined) {
+            session.autoSelectionEnabled = true;
+          }
+
           const categoryItems = db.contentItems.filter((item) => item.category === card.category);
-          const chosen =
-            (payload.itemId && categoryItems.find((i) => i.id === payload.itemId)) ||
-            categoryItems[0];
+          let chosen: ContentItem | undefined;
+
+          if (payload.itemId && payload.itemId !== 'auto') {
+            chosen = categoryItems.find((i) => i.id === payload.itemId);
+          }
+
+          if (!chosen) {
+            chosen = getAutomaticContentItem(card.category, categoryItems, session.usedItemIds);
+          }
+
+          if (chosen && chosen.id && !session.usedItemIds.includes(chosen.id)) {
+            session.usedItemIds.push(chosen.id);
+          }
+
           session.activeMiniGame = {
             cardNumber: card.cardNumber,
             category: card.category,
             categoryTitle: card.categoryTitle,
-            snapshot: chosen
-              ? {
-                  itemId: chosen.id,
-                  category: chosen.category,
-                  title: chosen.title,
-                  prompt: chosen.prompt,
-                  answer: chosen.answer,
-                  mediaUrl: chosen.mediaUrl,
-                  blurAmount: typeof chosen.blurAmount === 'number' ? chosen.blurAmount : 28,
-                }
-              : {
-                  itemId: 'fallback',
-                  category: card.category as ContentCategory,
-                  title: card.categoryTitle,
-                  prompt: `Identify this ${card.categoryTitle}!`,
-                  answer: 'Official Answer',
-                  blurAmount: 28,
-                },
+            snapshot: {
+              itemId: chosen.id,
+              category: chosen.category,
+              title: chosen.title,
+              prompt: chosen.prompt,
+              answer: chosen.answer,
+              options: Array.isArray(chosen.options) ? [...chosen.options] : undefined,
+              mediaUrl: chosen.mediaUrl,
+              blurAmount: typeof chosen.blurAmount === 'number' ? chosen.blurAmount : 28,
+            },
             timerSeconds: 30,
             timerRunning: false,
             answerRevealed: false,
@@ -855,6 +873,7 @@ export default async function handler(req: any, res: any) {
         db.timerStartedAt = null;
         session.boardDeckId = (session.boardDeckId || 1) + 1;
         session.cards = createShuffledCards();
+        session.usedItemIds = [];
         break;
       case 'minigame:useItem': {
         const mg = session.activeMiniGame;
@@ -864,6 +883,10 @@ export default async function handler(req: any, res: any) {
           (payload.itemId && categoryItems.find((i) => i.id === payload.itemId)) ||
           categoryItems[0];
         if (chosen) {
+          if (!Array.isArray(session.usedItemIds)) session.usedItemIds = [];
+          if (chosen.id && !session.usedItemIds.includes(chosen.id)) {
+            session.usedItemIds.push(chosen.id);
+          }
           const customBlur =
             payload.blurAmount !== undefined ? Number(payload.blurAmount) : undefined;
           mg.snapshot = {
@@ -872,6 +895,11 @@ export default async function handler(req: any, res: any) {
             title: payload.title?.trim() || chosen.title,
             prompt: payload.prompt?.trim() || chosen.prompt,
             answer: payload.answer?.trim() || chosen.answer,
+            options: Array.isArray(payload.options)
+              ? payload.options
+              : Array.isArray(chosen.options)
+              ? [...chosen.options]
+              : undefined,
             mediaUrl: chosen.mediaUrl,
             blurAmount:
               customBlur !== undefined && !Number.isNaN(customBlur)
@@ -886,6 +914,49 @@ export default async function handler(req: any, res: any) {
           mg.imageUnblurred = false;
           mg.audioPlaying = false;
         }
+        break;
+      }
+      case 'minigame:autoSelect': {
+        const mg = session.activeMiniGame;
+        if (!mg || mg.category === 'tictactoe') break;
+        if (!Array.isArray(session.usedItemIds)) session.usedItemIds = [];
+        const categoryItems = db.contentItems.filter((item) => item.category === mg.category);
+        const currentId = mg.snapshot?.itemId;
+        const fresh = getAutomaticContentItem(mg.category, categoryItems, session.usedItemIds, currentId);
+        if (fresh) {
+          if (!session.usedItemIds.includes(fresh.id)) {
+            session.usedItemIds.push(fresh.id);
+          }
+          mg.snapshot = {
+            itemId: fresh.id,
+            category: fresh.category,
+            title: fresh.title,
+            prompt: fresh.prompt,
+            answer: fresh.answer,
+            options: Array.isArray(fresh.options) ? [...fresh.options] : undefined,
+            mediaUrl: fresh.mediaUrl,
+            blurAmount: typeof fresh.blurAmount === 'number' ? fresh.blurAmount : 28,
+          };
+          mg.timerSeconds = 30;
+          mg.timerRunning = false;
+          db.timerStartedAt = null;
+          db.timerInitialSeconds = 30;
+          mg.answerRevealed = false;
+          mg.imageUnblurred = false;
+          mg.audioPlaying = false;
+          mg.scored = false;
+          mg.scoreResult = 'pending';
+          mg.awardedTeam = null;
+        }
+        break;
+      }
+      case 'session:toggleAutoSelection': {
+        session.autoSelectionEnabled =
+          payload.enabled !== undefined ? Boolean(payload.enabled) : !session.autoSelectionEnabled;
+        break;
+      }
+      case 'session:resetUsedItems': {
+        session.usedItemIds = [];
         break;
       }
       case 'minigame:setBlur': {
@@ -1076,7 +1147,7 @@ export default async function handler(req: any, res: any) {
     if (!isAuthorizedRequest(req)) return sendJson(res, 401, { error: 'Unauthorized' });
     const body = await parseJsonBody(req);
     const db = getDb();
-    const { category, title, prompt, answer, mediaUrl, blurAmount } = body || {};
+    const { category, title, prompt, answer, mediaUrl, blurAmount, options } = body || {};
     if (!category || !answer) {
       return sendJson(res, 400, { error: 'Category and answer are required' });
     }
@@ -1090,6 +1161,7 @@ export default async function handler(req: any, res: any) {
       title: String(title || prompt || 'Broadcast Item').trim(),
       prompt: String(prompt || title || 'Identify this football clue!').trim(),
       answer: String(answer).trim(),
+      options: Array.isArray(options) && options.length > 0 ? options.map(String) : undefined,
       mediaUrl: mediaUrl ? String(mediaUrl).trim() : undefined,
       blurAmount: parsedBlur,
       createdAt: new Date().toISOString(),
@@ -1110,7 +1182,7 @@ export default async function handler(req: any, res: any) {
       const idx = db.contentItems.findIndex((i) => i.id === id);
       if (idx === -1) return sendJson(res, 404, { error: 'Not found' });
       const existing = db.contentItems[idx];
-      const { title, prompt, answer, mediaUrl, blurAmount } = body || {};
+      const { title, prompt, answer, mediaUrl, blurAmount, options } = body || {};
       const parsedBlur =
         blurAmount !== undefined && !Number.isNaN(Number(blurAmount))
           ? Math.max(0, Math.min(60, Number(blurAmount)))
@@ -1120,6 +1192,7 @@ export default async function handler(req: any, res: any) {
         title: title !== undefined ? String(title).trim() : existing.title,
         prompt: prompt !== undefined ? String(prompt).trim() : existing.prompt,
         answer: answer !== undefined ? String(answer).trim() : existing.answer,
+        options: Array.isArray(options) ? options.map(String) : existing.options,
         mediaUrl:
           mediaUrl !== undefined
             ? mediaUrl

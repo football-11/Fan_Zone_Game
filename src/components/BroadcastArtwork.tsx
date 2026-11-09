@@ -621,11 +621,12 @@ export const PlayerPortraitArtwork: React.FC<{
   if (currentSrc && !failedAll) {
     return (
       <div
-        className={`${className} rounded-full border-2 ${borderClass} overflow-hidden flex items-center justify-center shrink-0`}
+        className={`${className} rounded-full border-2 ${borderClass} overflow-hidden flex items-center justify-center shrink-0 shadow-lg`}
       >
         <img
           src={currentSrc}
           alt={playerName || 'Player'}
+          referrerPolicy="no-referrer"
           onError={() => {
             if (currentSrc.includes('?')) {
               setCurrentSrc(currentSrc.split('?')[0]);
@@ -648,9 +649,19 @@ export const PlayerPortraitArtwork: React.FC<{
 
   return (
     <div
-      className={`${className} rounded-full border-2 ${borderClass} flex items-center justify-center shrink-0 font-['Outfit'] font-black text-xs text-white select-none`}
+      className={`${className} rounded-full border-2 ${borderClass} flex flex-col items-center justify-center shrink-0 font-['Outfit'] font-black text-white select-none relative overflow-hidden shadow-lg`}
     >
-      {initials || 'FP'}
+      {/* Background Player Athlete Silhouette */}
+      <svg
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        className="absolute inset-0 w-full h-full text-white/20 scale-90 translate-y-1 pointer-events-none"
+      >
+        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+      </svg>
+      <span className="relative z-10 text-xs sm:text-base lg:text-xl xl:text-2xl font-black tracking-tight drop-shadow-md">
+        {initials || 'FP'}
+      </span>
     </div>
   );
 };

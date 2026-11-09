@@ -46,7 +46,6 @@ interface GameSyncContextValue {
     title: string;
     prompt: string;
     answer: string;
-    options?: string[];
     mediaUrl?: string;
     blurAmount?: number;
   }) => Promise<void>;
@@ -56,7 +55,6 @@ interface GameSyncContextValue {
       title?: string;
       prompt?: string;
       answer?: string;
-      options?: string[];
       mediaUrl?: string;
       blurAmount?: number;
     }
@@ -269,7 +267,6 @@ const DEFAULT_FALLBACK_ITEMS: ContentItem[] = [
     title: 'Messi’s 2012 Calendar Year Goals',
     prompt: 'How many official goals did Lionel Messi score in the 2012 calendar year for club and country?',
     answer: '91 Goals',
-    options: ['86 Goals', '91 Goals', '73 Goals', '95 Goals'],
     createdAt: new Date().toISOString(),
   },
   {
@@ -975,7 +972,6 @@ export const GameSyncProvider: React.FC<{
                   title: chosen.title,
                   prompt: chosen.prompt,
                   answer: chosen.answer,
-                  options: chosen.options ? [...chosen.options] : undefined,
                   mediaUrl: chosen.mediaUrl,
                   blurAmount: typeof chosen.blurAmount === 'number' ? chosen.blurAmount : 28,
                 },
@@ -1040,12 +1036,6 @@ export const GameSyncProvider: React.FC<{
                 title: payload.title?.trim() || baseSnap.title,
                 prompt: payload.prompt?.trim() || baseSnap.prompt,
                 answer: payload.answer?.trim() || baseSnap.answer,
-                options:
-                  Array.isArray(payload.options) && payload.options.length > 0
-                    ? payload.options
-                    : baseSnap.options
-                    ? [...baseSnap.options]
-                    : undefined,
                 mediaUrl: baseSnap.mediaUrl,
                 blurAmount:
                   customBlur !== undefined && !Number.isNaN(customBlur)
@@ -1078,7 +1068,6 @@ export const GameSyncProvider: React.FC<{
                 title: fresh.title,
                 prompt: fresh.prompt,
                 answer: fresh.answer,
-                options: fresh.options ? [...fresh.options] : undefined,
                 mediaUrl: fresh.mediaUrl,
                 blurAmount: typeof fresh.blurAmount === 'number' ? fresh.blurAmount : 28,
               };
@@ -1371,7 +1360,6 @@ export const GameSyncProvider: React.FC<{
     title: string;
     prompt: string;
     answer: string;
-    options?: string[];
     mediaUrl?: string;
     blurAmount?: number;
   }) => {
@@ -1386,7 +1374,6 @@ export const GameSyncProvider: React.FC<{
       title: itemInput.title,
       prompt: itemInput.prompt,
       answer: itemInput.answer,
-      options: itemInput.options ? [...itemInput.options] : undefined,
       mediaUrl: itemInput.mediaUrl,
       blurAmount: parsedBlur,
       createdAt: new Date().toISOString(),
@@ -1429,7 +1416,6 @@ export const GameSyncProvider: React.FC<{
       title?: string;
       prompt?: string;
       answer?: string;
-      options?: string[];
       mediaUrl?: string;
       blurAmount?: number;
     }
@@ -1442,7 +1428,6 @@ export const GameSyncProvider: React.FC<{
             title: updates.title !== undefined ? updates.title : item.title,
             prompt: updates.prompt !== undefined ? updates.prompt : item.prompt,
             answer: updates.answer !== undefined ? updates.answer : item.answer,
-            options: updates.options !== undefined ? updates.options : item.options,
             mediaUrl: updates.mediaUrl !== undefined ? updates.mediaUrl : item.mediaUrl,
             blurAmount:
               updates.blurAmount !== undefined

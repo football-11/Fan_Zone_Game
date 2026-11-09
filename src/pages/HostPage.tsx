@@ -39,7 +39,6 @@ const HostConsoleBody: React.FC = () => {
   const [inlineTitle, setInlineTitle] = useState<string>('');
   const [inlinePrompt, setInlinePrompt] = useState<string>('');
   const [inlineAnswer, setInlineAnswer] = useState<string>('');
-  const [inlineOptions, setInlineOptions] = useState<string[]>(['', '', '', '']);
   const [inlineBlurAmount, setInlineBlurAmount] = useState<number>(28);
   const [spokenPlayerName, setSpokenPlayerName] = useState<string>('');
   const [selectedPlayerImageUrl, setSelectedPlayerImageUrl] = useState<string | null>(null);
@@ -104,12 +103,6 @@ const HostConsoleBody: React.FC = () => {
       setInlineTitle(mg.snapshot.title || '');
       setInlinePrompt(mg.snapshot.prompt || '');
       setInlineAnswer(mg.snapshot.answer || '');
-      if (Array.isArray(mg.snapshot.options) && mg.snapshot.options.length > 0) {
-        const padded = [...mg.snapshot.options, '', '', ''].slice(0, 4);
-        setInlineOptions(padded);
-      } else {
-        setInlineOptions(['', '', '', '']);
-      }
       setInlineBlurAmount(
         typeof mg.snapshot.blurAmount === 'number' ? mg.snapshot.blurAmount : 28
       );
@@ -120,16 +113,9 @@ const HostConsoleBody: React.FC = () => {
       setInlineTitle(first.title);
       setInlinePrompt(first.prompt);
       setInlineAnswer(first.answer);
-      if (Array.isArray(first.options) && first.options.length > 0) {
-        const padded = [...first.options, '', '', ''].slice(0, 4);
-        setInlineOptions(padded);
-      } else {
-        setInlineOptions(['', '', '', '']);
-      }
       setInlineBlurAmount(typeof first.blurAmount === 'number' ? first.blurAmount : 28);
     } else {
       setSelectedItemId('auto');
-      setInlineOptions(['', '', '', '']);
     }
   }, [mg?.cardNumber, mg?.snapshot?.itemId, activeCategory, contentItems.length, state?.usedItemIds?.length]);
 
@@ -205,12 +191,6 @@ const HostConsoleBody: React.FC = () => {
       setInlineTitle(found.title);
       setInlinePrompt(found.prompt);
       setInlineAnswer(found.answer);
-      if (Array.isArray(found.options) && found.options.length > 0) {
-        const padded = [...found.options, '', '', ''].slice(0, 4);
-        setInlineOptions(padded);
-      } else {
-        setInlineOptions(['', '', '', '']);
-      }
       const nextBlur = typeof found.blurAmount === 'number' ? found.blurAmount : 28;
       setInlineBlurAmount(nextBlur);
       if (mg && isImageGuessCategory) {
@@ -225,10 +205,6 @@ const HostConsoleBody: React.FC = () => {
       title: inlineTitle,
       prompt: inlinePrompt,
       answer: inlineAnswer,
-      options:
-        activeCategory === 'number'
-          ? inlineOptions.map((o) => o.trim()).filter(Boolean)
-          : undefined,
       blurAmount: isImageGuessCategory ? inlineBlurAmount : undefined,
     });
   };
@@ -1203,72 +1179,6 @@ const HostConsoleBody: React.FC = () => {
                       className="w-full min-h-[44px] px-3 py-2 rounded-xl bg-[#081326] border border-emerald-500/50 text-xs text-emerald-300 font-semibold focus:outline-none focus:border-emerald-400"
                     />
                   </div>
-
-                  {activeCategory === 'number' && (
-                    <div className="p-3 rounded-xl bg-[#081326] border border-amber-500/40 space-y-2.5">
-                      <div className="flex flex-wrap items-center justify-between gap-1">
-                        <span className="text-xs font-bold text-amber-400">
-                          Multiple Choice Options (A, B, C, D)
-                        </span>
-                        <span className="text-[10px] text-slate-400">
-                          Tap option letter to designate as official answer
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {['A', 'B', 'C', 'D'].map((letter, optIdx) => {
-                          const optVal = inlineOptions[optIdx] || '';
-                          const isSelectedAnswer =
-                            optVal.trim().length > 0 &&
-                            (inlineAnswer.trim().toLowerCase() === optVal.trim().toLowerCase() ||
-                              inlineAnswer.trim().toLowerCase().includes(optVal.trim().toLowerCase()));
-
-                          return (
-                            <div
-                              key={letter}
-                              className={`p-2 rounded-xl border flex items-center gap-2 transition-all ${
-                                isSelectedAnswer
-                                  ? 'bg-emerald-950/70 border-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.3)]'
-                                  : 'bg-[#030914] border-slate-700/80 hover:border-slate-600'
-                              }`}
-                            >
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (optVal.trim()) {
-                                    setInlineAnswer(optVal.trim());
-                                  }
-                                }}
-                                title={`Click to set option ${letter} as official answer`}
-                                className={`shrink-0 w-7 h-7 rounded-lg font-['Outfit'] font-black text-xs flex items-center justify-center transition-all cursor-pointer ${
-                                  isSelectedAnswer
-                                    ? 'bg-emerald-400 text-slate-950 shadow'
-                                    : 'bg-amber-500/20 hover:bg-amber-500/35 border border-amber-400/40 text-amber-300'
-                                }`}
-                              >
-                                {letter}
-                              </button>
-                              <input
-                                type="text"
-                                value={optVal}
-                                placeholder={`Option ${letter}...`}
-                                onChange={(e) => {
-                                  const nextOpts = [...inlineOptions];
-                                  nextOpts[optIdx] = e.target.value;
-                                  setInlineOptions(nextOpts);
-                                }}
-                                className="flex-1 min-w-0 bg-transparent text-xs text-white focus:outline-none placeholder:text-slate-600"
-                              />
-                              {isSelectedAnswer && (
-                                <span className="shrink-0 text-[10px] font-bold text-emerald-400 uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/20">
-                                  ✓ Answer
-                                </span>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
 
                   <button
                     type="button"

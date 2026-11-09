@@ -368,7 +368,6 @@ function createDefaultContentItems(): ContentItem[] {
       title: 'Messi’s 2012 Calendar Year Goals',
       prompt: 'How many official goals did Lionel Messi score in the 2012 calendar year for club and country?',
       answer: '91 Goals',
-      options: ['86 Goals', '91 Goals', '73 Goals', '95 Goals'],
       createdAt: now,
     },
     {
@@ -377,7 +376,6 @@ function createDefaultContentItems(): ContentItem[] {
       title: 'Fastest World Cup Goal (Seconds)',
       prompt: 'In how many seconds did Hakan Şükür score the fastest goal in FIFA World Cup history in 2002?',
       answer: '11 Seconds (10.8s)',
-      options: ['11 Seconds', '15 Seconds', '19 Seconds', '8 Seconds'],
       createdAt: now,
     },
     {
@@ -386,7 +384,6 @@ function createDefaultContentItems(): ContentItem[] {
       title: 'Real Madrid European Cup Titles',
       prompt: 'How many UEFA Champions League / European Cup trophies had Real Madrid won after the 2024 Final at Wembley?',
       answer: '15 Titles',
-      options: ['13 Titles', '14 Titles', '15 Titles', '16 Titles'],
       createdAt: now,
     },
     // 7. Audio Clips
@@ -711,7 +708,6 @@ async function startServer() {
       title: chosen.title,
       prompt: chosen.prompt,
       answer: chosen.answer,
-      options: Array.isArray(chosen.options) ? [...chosen.options] : undefined,
       mediaUrl: chosen.mediaUrl,
       blurAmount: typeof chosen.blurAmount === 'number' ? chosen.blurAmount : 28,
     };
@@ -882,7 +878,6 @@ async function startServer() {
             title: customTitle !== undefined && customTitle.trim() ? customTitle.trim() : baseSnapshot.title,
             prompt: customPrompt !== undefined && customPrompt.trim() ? customPrompt.trim() : baseSnapshot.prompt,
             answer: customAnswer !== undefined && customAnswer.trim() ? customAnswer.trim() : baseSnapshot.answer,
-            options: Array.isArray(payload.options) ? payload.options : baseSnapshot.options,
             blurAmount:
               customBlur !== undefined && !Number.isNaN(customBlur)
                 ? Math.max(0, Math.min(60, customBlur))
@@ -1393,7 +1388,7 @@ async function startServer() {
     if (!isAuthorizedRequest(req)) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
-    const { category, title, prompt, answer, mediaUrl, blurAmount, options } = req.body || {};
+    const { category, title, prompt, answer, mediaUrl, blurAmount } = req.body || {};
     if (!category || !answer) {
       return res.status(400).json({ error: 'Category and answer are required' });
     }
@@ -1407,7 +1402,6 @@ async function startServer() {
       title: String(title || prompt || 'Broadcast Item').trim(),
       prompt: String(prompt || title || 'Identify this football clue!').trim(),
       answer: String(answer).trim(),
-      options: Array.isArray(options) && options.length > 0 ? options.map(String) : undefined,
       mediaUrl: mediaUrl ? String(mediaUrl).trim() : undefined,
       blurAmount: parsedBlur,
       createdAt: new Date().toISOString(),
@@ -1427,7 +1421,7 @@ async function startServer() {
       return res.status(404).json({ error: 'Content item not found' });
     }
     const existing = dbState.contentItems[idx];
-    const { title, prompt, answer, mediaUrl, blurAmount, options } = req.body || {};
+    const { title, prompt, answer, mediaUrl, blurAmount } = req.body || {};
     const parsedBlur =
       blurAmount !== undefined && !Number.isNaN(Number(blurAmount))
         ? Math.max(0, Math.min(60, Number(blurAmount)))
@@ -1437,7 +1431,6 @@ async function startServer() {
       title: title !== undefined ? String(title).trim() : existing.title,
       prompt: prompt !== undefined ? String(prompt).trim() : existing.prompt,
       answer: answer !== undefined ? String(answer).trim() : existing.answer,
-      options: Array.isArray(options) ? options.map(String) : existing.options,
       mediaUrl: mediaUrl !== undefined ? (mediaUrl ? String(mediaUrl).trim() : undefined) : existing.mediaUrl,
       blurAmount: parsedBlur,
       updatedAt: new Date().toISOString(),

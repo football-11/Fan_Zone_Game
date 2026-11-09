@@ -38,7 +38,6 @@ interface ContentItem {
   title: string;
   prompt: string;
   answer: string;
-  options?: string[];
   mediaUrl?: string;
   blurAmount?: number;
   createdAt: string;
@@ -110,7 +109,6 @@ interface ActiveMiniGameState {
     title: string;
     prompt: string;
     answer?: string;
-    options?: string[];
     mediaUrl?: string;
     blurAmount?: number;
   } | null;
@@ -832,7 +830,6 @@ export default async function handler(req: any, res: any) {
               title: chosen.title,
               prompt: chosen.prompt,
               answer: chosen.answer,
-              options: Array.isArray(chosen.options) ? [...chosen.options] : undefined,
               mediaUrl: chosen.mediaUrl,
               blurAmount: typeof chosen.blurAmount === 'number' ? chosen.blurAmount : 28,
             },
@@ -895,11 +892,6 @@ export default async function handler(req: any, res: any) {
             title: payload.title?.trim() || chosen.title,
             prompt: payload.prompt?.trim() || chosen.prompt,
             answer: payload.answer?.trim() || chosen.answer,
-            options: Array.isArray(payload.options)
-              ? payload.options
-              : Array.isArray(chosen.options)
-              ? [...chosen.options]
-              : undefined,
             mediaUrl: chosen.mediaUrl,
             blurAmount:
               customBlur !== undefined && !Number.isNaN(customBlur)
@@ -933,7 +925,6 @@ export default async function handler(req: any, res: any) {
             title: fresh.title,
             prompt: fresh.prompt,
             answer: fresh.answer,
-            options: Array.isArray(fresh.options) ? [...fresh.options] : undefined,
             mediaUrl: fresh.mediaUrl,
             blurAmount: typeof fresh.blurAmount === 'number' ? fresh.blurAmount : 28,
           };
@@ -1147,7 +1138,7 @@ export default async function handler(req: any, res: any) {
     if (!isAuthorizedRequest(req)) return sendJson(res, 401, { error: 'Unauthorized' });
     const body = await parseJsonBody(req);
     const db = getDb();
-    const { category, title, prompt, answer, mediaUrl, blurAmount, options } = body || {};
+    const { category, title, prompt, answer, mediaUrl, blurAmount } = body || {};
     if (!category || !answer) {
       return sendJson(res, 400, { error: 'Category and answer are required' });
     }
@@ -1161,7 +1152,6 @@ export default async function handler(req: any, res: any) {
       title: String(title || prompt || 'Broadcast Item').trim(),
       prompt: String(prompt || title || 'Identify this football clue!').trim(),
       answer: String(answer).trim(),
-      options: Array.isArray(options) && options.length > 0 ? options.map(String) : undefined,
       mediaUrl: mediaUrl ? String(mediaUrl).trim() : undefined,
       blurAmount: parsedBlur,
       createdAt: new Date().toISOString(),
@@ -1182,7 +1172,7 @@ export default async function handler(req: any, res: any) {
       const idx = db.contentItems.findIndex((i) => i.id === id);
       if (idx === -1) return sendJson(res, 404, { error: 'Not found' });
       const existing = db.contentItems[idx];
-      const { title, prompt, answer, mediaUrl, blurAmount, options } = body || {};
+      const { title, prompt, answer, mediaUrl, blurAmount } = body || {};
       const parsedBlur =
         blurAmount !== undefined && !Number.isNaN(Number(blurAmount))
           ? Math.max(0, Math.min(60, Number(blurAmount)))
@@ -1192,7 +1182,6 @@ export default async function handler(req: any, res: any) {
         title: title !== undefined ? String(title).trim() : existing.title,
         prompt: prompt !== undefined ? String(prompt).trim() : existing.prompt,
         answer: answer !== undefined ? String(answer).trim() : existing.answer,
-        options: Array.isArray(options) ? options.map(String) : existing.options,
         mediaUrl:
           mediaUrl !== undefined
             ? mediaUrl

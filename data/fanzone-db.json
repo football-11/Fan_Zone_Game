@@ -7,14 +7,14 @@
     "lastScorePulse": null,
     "selectedCardNumber": 1,
     "stage": "board",
-    "boardDeckId": 8,
+    "boardDeckId": 5,
     "cards": [
       {
         "cardNumber": 1,
         "emojiId": "cry",
         "emojiLabel": "Sad Tear",
-        "category": "number",
-        "categoryTitle": "Number",
+        "category": "audio",
+        "categoryTitle": "Audio",
         "revealed": false,
         "scored": false,
         "scoreResult": "pending",
@@ -24,8 +24,8 @@
         "cardNumber": 2,
         "emojiId": "crying_smili",
         "emojiLabel": "Joy Tears",
-        "category": "logo",
-        "categoryTitle": "Guess the Team Logo",
+        "category": "stadium",
+        "categoryTitle": "Guess the Stadium",
         "revealed": false,
         "scored": false,
         "scoreResult": "pending",
@@ -35,8 +35,8 @@
         "cardNumber": 3,
         "emojiId": "love",
         "emojiLabel": "Heart Eyes",
-        "category": "audio",
-        "categoryTitle": "Audio",
+        "category": "quiz",
+        "categoryTitle": "Quiz",
         "revealed": false,
         "scored": false,
         "scoreResult": "pending",
@@ -46,8 +46,8 @@
         "cardNumber": 4,
         "emojiId": "shock",
         "emojiLabel": "Shocked",
-        "category": "jersey",
-        "categoryTitle": "Guess the Jersey",
+        "category": "photo",
+        "categoryTitle": "Guess the Player Photo",
         "revealed": false,
         "scored": false,
         "scoreResult": "pending",
@@ -57,8 +57,8 @@
         "cardNumber": 5,
         "emojiId": "silly",
         "emojiLabel": "Wink Tongue",
-        "category": "photo",
-        "categoryTitle": "Guess the Player Photo",
+        "category": "number",
+        "categoryTitle": "Number",
         "revealed": false,
         "scored": false,
         "scoreResult": "pending",
@@ -68,8 +68,8 @@
         "cardNumber": 6,
         "emojiId": "smali",
         "emojiLabel": "Big Smile",
-        "category": "tictactoe",
-        "categoryTitle": "Football Tic-Tac-Toe",
+        "category": "logo",
+        "categoryTitle": "Guess the Team Logo",
         "revealed": false,
         "scored": false,
         "scoreResult": "pending",
@@ -79,8 +79,8 @@
         "cardNumber": 7,
         "emojiId": "angry",
         "emojiLabel": "Fierce Angry",
-        "category": "stadium",
-        "categoryTitle": "Guess the Stadium",
+        "category": "jersey",
+        "categoryTitle": "Guess the Jersey",
         "revealed": false,
         "scored": false,
         "scoreResult": "pending",
@@ -90,8 +90,8 @@
         "cardNumber": 8,
         "emojiId": "cool",
         "emojiLabel": "Cool Shades",
-        "category": "quiz",
-        "categoryTitle": "Quiz",
+        "category": "tictactoe",
+        "categoryTitle": "Football Tic-Tac-Toe",
         "revealed": false,
         "scored": false,
         "scoreResult": "pending",
@@ -99,8 +99,11 @@
       }
     ],
     "activeMiniGame": null,
-    "updatedAt": 1794217281259,
-    "usedItemIds": [],
+    "updatedAt": 1792645182651,
+    "usedItemIds": [
+      "auto_audio_2",
+      "auto_audio_3"
+    ],
     "autoSelectionEnabled": true
   },
   "contentItems": [
@@ -206,12 +209,6 @@
       "title": "Messi’s 2012 Calendar Year Goals",
       "prompt": "How many official goals did Lionel Messi score in the 2012 calendar year for club and country?",
       "answer": "91 Goals",
-      "options": [
-        "86 Goals",
-        "91 Goals",
-        "73 Goals",
-        "95 Goals"
-      ],
       "createdAt": "2026-10-21T12:34:37.355Z"
     },
     {
@@ -220,12 +217,6 @@
       "title": "Fastest World Cup Goal (Seconds)",
       "prompt": "In how many seconds did Hakan Şükür score the fastest goal in FIFA World Cup history in 2002?",
       "answer": "11 Seconds (10.8s)",
-      "options": [
-        "11 Seconds",
-        "15 Seconds",
-        "19 Seconds",
-        "8 Seconds"
-      ],
       "createdAt": "2026-10-21T12:34:37.355Z"
     },
     {
@@ -234,12 +225,6 @@
       "title": "Real Madrid European Cup Titles",
       "prompt": "How many UEFA Champions League / European Cup trophies had Real Madrid won after the 2024 Final at Wembley?",
       "answer": "15 Titles",
-      "options": [
-        "13 Titles",
-        "14 Titles",
-        "15 Titles",
-        "16 Titles"
-      ],
       "createdAt": "2026-10-21T12:34:37.355Z"
     },
     {

@@ -561,13 +561,17 @@ export const GameSyncProvider: React.FC<{
       if (res.ok && ct.includes('application/json')) {
         const data = await res.json();
         if (data.unchanged) return;
-        if (data.state) {
+        if (data.state && Array.isArray(data.state.cards)) {
           const incomingUpdatedAt = Number(data.state.updatedAt || data.updatedAt || 0);
-          if (incomingUpdatedAt <= 0) return;
-          // Never overwrite a newer local BroadcastChannel state
-          if ((stateRef.current?.updatedAt || 0) >= incomingUpdatedAt) return;
-          stateRef.current = data.state;
-          setState(data.state);
+          const currentLocalTimestamp = stateRef.current?.updatedAt || 0;
+          const isFreshOrNewer =
+            currentLocalTimestamp === 0 ||
+            incomingUpdatedAt >= currentLocalTimestamp ||
+            Date.now() - lastLocalSyncAtRef.current > 3000;
+          if (isFreshOrNewer || !stateRef.current) {
+            stateRef.current = data.state;
+            setState(data.state);
+          }
         }
       }
     } catch {

@@ -327,8 +327,8 @@ export const StudioStageView: React.FC<{
               isPreview ? 'gap-2' : 'gap-5 lg:gap-7'
             } ${stageAnim === 'board-enter' ? 'animate-board-return' : ''}`}
           >
-            {state.cards.map((card, idx) => {
-              const revealedCard = state.cards.find((c) => c.revealed);
+            {(state.cards || []).map((card, idx) => {
+              const revealedCard = (state.cards || []).find((c) => c.revealed);
               const isLockedByPick = Boolean(
                 revealedCard && revealedCard.cardNumber !== card.cardNumber
               );
@@ -593,7 +593,7 @@ export const StudioStageView: React.FC<{
                   </div>
 
                   {/* Top Row: 3 Club Column Headers */}
-                  {mg.ticTacToe.clubs.map((club) => (
+                  {(mg.ticTacToe.clubs || []).map((club) => (
                     <div
                       key={club.id}
                       className="rounded-xl bg-[#081326] border border-slate-700/80 flex items-center justify-center gap-3 px-3 py-2"
@@ -616,7 +616,7 @@ export const StudioStageView: React.FC<{
                   ))}
 
                   {/* 3 Rows: Club Row Header + 3 Intersection Squares */}
-                  {mg.ticTacToe.nations.map((rowClub, rowIdx) => (
+                  {(mg.ticTacToe.nations || []).map((rowClub, rowIdx) => (
                     <React.Fragment key={rowClub.id}>
                       {/* Left Row Header: Club Crest Emblem + Name */}
                       <div className="rounded-xl bg-[#081326] border border-slate-700/80 flex items-center justify-center gap-3 px-3 py-2">
@@ -639,15 +639,23 @@ export const StudioStageView: React.FC<{
                       {/* 3 Intersection Cells in this Row */}
                       {[0, 1, 2].map((colIdx) => {
                         const cellIndex = rowIdx * 3 + colIdx;
-                        const cell = mg.ticTacToe!.cells[cellIndex];
-                        const isSelectedCell = mg.ticTacToe!.selectedCellIndex === cellIndex;
-                        const isWinningCell =
-                          mg.ticTacToe!.winningLine?.includes(cellIndex) || false;
+                        const cell = mg.ticTacToe?.cells?.[cellIndex] || {
+                          index: cellIndex,
+                          row: rowIdx,
+                          col: colIdx,
+                          owner: null,
+                          playerName: null,
+                        };
+                        const isSelectedCell = mg.ticTacToe?.selectedCellIndex === cellIndex;
+                        const isWinningCell = Boolean(
+                          Array.isArray(mg.ticTacToe?.winningLine) &&
+                            mg.ticTacToe.winningLine.includes(cellIndex)
+                        );
                         const recentRejection =
-                          mg.ticTacToe!.rejectedFeedback &&
-                          mg.ticTacToe!.rejectedFeedback.cellIndex === cellIndex &&
-                          nowTick - mg.ticTacToe!.rejectedFeedback.timestamp < 3500
-                            ? mg.ticTacToe!.rejectedFeedback
+                          mg.ticTacToe?.rejectedFeedback &&
+                          mg.ticTacToe.rejectedFeedback.cellIndex === cellIndex &&
+                          nowTick - mg.ticTacToe.rejectedFeedback.timestamp < 3500
+                            ? mg.ticTacToe.rejectedFeedback
                             : null;
 
                         return (

@@ -12,6 +12,8 @@ import {
   Square,
   Sparkles,
   RefreshCw,
+  Tv,
+  ExternalLink,
 } from 'lucide-react';
 import { GameSyncProvider, useGameSync } from '../context/GameSyncContext';
 import { OwnerAuthGate } from '../components/OwnerAuthGate';
@@ -173,14 +175,25 @@ const HostConsoleBody: React.FC = () => {
           >
             Content Manager
           </Link>
-          <Link
-            to="/studio"
-            target="_blank"
-            rel="noreferrer"
-            className="hover:text-sky-400 transition-colors whitespace-nowrap shrink-0"
-          >
-            Studio Display
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              to="/studio"
+              className="px-3 py-1.5 rounded-lg bg-sky-500/15 border border-sky-400/50 hover:bg-sky-500/25 text-sky-300 hover:text-white transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 font-bold"
+              title="Open full 16:9 Studio Display"
+            >
+              <Tv className="w-3.5 h-3.5" />
+              <span>Studio Display</span>
+            </Link>
+            <a
+              href="/studio"
+              target="_blank"
+              rel="noreferrer"
+              className="p-1.5 rounded-lg bg-slate-900 border border-slate-700 hover:border-slate-500 text-slate-400 hover:text-white transition-colors shrink-0"
+              title="Open Studio in new browser tab / window"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          </div>
         </nav>
 
         <div className="flex items-center gap-3 shrink-0">

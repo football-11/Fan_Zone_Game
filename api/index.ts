@@ -402,7 +402,7 @@ function getDb(): ServerlessDB {
       boardDeckId: 1,
       cards: createShuffledCards(),
       activeMiniGame: null,
-      updatedAt: 0,
+      updatedAt: Date.now(),
     },
     contentItems: createDefaultContentItems(),
     timerStartedAt: null,

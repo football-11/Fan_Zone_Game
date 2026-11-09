@@ -132,8 +132,6 @@ export interface GameSessionState {
   boardDeckId?: number;
   cards: BoardCard[];
   activeMiniGame: ActiveMiniGameState | null;
-  usedItemIds?: string[];
-  autoSelectionEnabled?: boolean;
   updatedAt: number;
 }
 

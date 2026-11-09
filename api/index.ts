@@ -6,10 +6,6 @@ import {
   getBzzoiroTeamLogoUrl,
   resolveBzzoiroPlayerImageUrl,
 } from '../src/data/bzzoiroSports';
-import {
-  getAutomaticContentItem,
-  AUTOMATIC_CONTENT_ITEMS,
-} from '../src/data/automaticContentPool';
 
 type TeamId = 'red' | 'blue';
 type EmojiId =
@@ -139,8 +135,6 @@ interface GameSessionState {
   boardDeckId?: number;
   cards: BoardCard[];
   activeMiniGame: ActiveMiniGameState | null;
-  usedItemIds?: string[];
-  autoSelectionEnabled?: boolean;
   updatedAt: number;
 }
 
@@ -798,41 +792,32 @@ export default async function handler(req: any, res: any) {
             ticTacToe: createFreshTicTacToeState(session.activeTeam),
           };
         } else {
-          if (!Array.isArray(session.usedItemIds)) {
-            session.usedItemIds = [];
-          }
-          if (session.autoSelectionEnabled === undefined) {
-            session.autoSelectionEnabled = true;
-          }
-
           const categoryItems = db.contentItems.filter((item) => item.category === card.category);
-          let chosen: ContentItem | undefined;
-
-          if (payload.itemId && payload.itemId !== 'auto') {
-            chosen = categoryItems.find((i) => i.id === payload.itemId);
-          }
-
-          if (!chosen) {
-            chosen = getAutomaticContentItem(card.category, categoryItems, session.usedItemIds);
-          }
-
-          if (chosen && chosen.id && !session.usedItemIds.includes(chosen.id)) {
-            session.usedItemIds.push(chosen.id);
-          }
-
+          const chosen =
+            (payload.itemId && categoryItems.find((i) => i.id === payload.itemId)) ||
+            categoryItems[0];
           session.activeMiniGame = {
             cardNumber: card.cardNumber,
             category: card.category,
             categoryTitle: card.categoryTitle,
-            snapshot: {
-              itemId: chosen.id,
-              category: chosen.category,
-              title: chosen.title,
-              prompt: chosen.prompt,
-              answer: chosen.answer,
-              mediaUrl: chosen.mediaUrl,
-              blurAmount: typeof chosen.blurAmount === 'number' ? chosen.blurAmount : 28,
-            },
+            snapshot: chosen
+              ? {
+                  itemId: chosen.id,
+                  category: chosen.category,
+                  title: chosen.title,
+                  prompt: chosen.prompt,
+                  answer: chosen.answer,
+                  mediaUrl: chosen.mediaUrl,
+                  blurAmount: typeof chosen.blurAmount === 'number' ? chosen.blurAmount : 28,
+                }
+              : {
+                  itemId: 'fallback',
+                  category: card.category as ContentCategory,
+                  title: card.categoryTitle,
+                  prompt: `Identify this ${card.categoryTitle}!`,
+                  answer: 'Official Answer',
+                  blurAmount: 28,
+                },
             timerSeconds: 30,
             timerRunning: false,
             answerRevealed: false,
@@ -870,7 +855,6 @@ export default async function handler(req: any, res: any) {
         db.timerStartedAt = null;
         session.boardDeckId = (session.boardDeckId || 1) + 1;
         session.cards = createShuffledCards();
-        session.usedItemIds = [];
         break;
       case 'minigame:useItem': {
         const mg = session.activeMiniGame;
@@ -880,10 +864,6 @@ export default async function handler(req: any, res: any) {
           (payload.itemId && categoryItems.find((i) => i.id === payload.itemId)) ||
           categoryItems[0];
         if (chosen) {
-          if (!Array.isArray(session.usedItemIds)) session.usedItemIds = [];
-          if (chosen.id && !session.usedItemIds.includes(chosen.id)) {
-            session.usedItemIds.push(chosen.id);
-          }
           const customBlur =
             payload.blurAmount !== undefined ? Number(payload.blurAmount) : undefined;
           mg.snapshot = {
@@ -906,48 +886,6 @@ export default async function handler(req: any, res: any) {
           mg.imageUnblurred = false;
           mg.audioPlaying = false;
         }
-        break;
-      }
-      case 'minigame:autoSelect': {
-        const mg = session.activeMiniGame;
-        if (!mg || mg.category === 'tictactoe') break;
-        if (!Array.isArray(session.usedItemIds)) session.usedItemIds = [];
-        const categoryItems = db.contentItems.filter((item) => item.category === mg.category);
-        const currentId = mg.snapshot?.itemId;
-        const fresh = getAutomaticContentItem(mg.category, categoryItems, session.usedItemIds, currentId);
-        if (fresh) {
-          if (!session.usedItemIds.includes(fresh.id)) {
-            session.usedItemIds.push(fresh.id);
-          }
-          mg.snapshot = {
-            itemId: fresh.id,
-            category: fresh.category,
-            title: fresh.title,
-            prompt: fresh.prompt,
-            answer: fresh.answer,
-            mediaUrl: fresh.mediaUrl,
-            blurAmount: typeof fresh.blurAmount === 'number' ? fresh.blurAmount : 28,
-          };
-          mg.timerSeconds = 30;
-          mg.timerRunning = false;
-          db.timerStartedAt = null;
-          db.timerInitialSeconds = 30;
-          mg.answerRevealed = false;
-          mg.imageUnblurred = false;
-          mg.audioPlaying = false;
-          mg.scored = false;
-          mg.scoreResult = 'pending';
-          mg.awardedTeam = null;
-        }
-        break;
-      }
-      case 'session:toggleAutoSelection': {
-        session.autoSelectionEnabled =
-          payload.enabled !== undefined ? Boolean(payload.enabled) : !session.autoSelectionEnabled;
-        break;
-      }
-      case 'session:resetUsedItems': {
-        session.usedItemIds = [];
         break;
       }
       case 'minigame:setBlur': {

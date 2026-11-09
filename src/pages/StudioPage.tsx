@@ -6,23 +6,11 @@ import { ArrowLeft, Maximize, Minimize, RefreshCw, Radio, Tv } from 'lucide-reac
 import { Link } from 'react-router-dom';
 
 const StudioScreenContent: React.FC = () => {
-  const { state, connected, forceSync } = useGameSync();
+  const { state, connected } = useGameSync();
   const [showToolbar, setShowToolbar] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
   const [connectingElapsed, setConnectingElapsed] = useState(0);
   const toolbarTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    try {
-      await forceSync();
-    } catch {
-      window.location.reload();
-    } finally {
-      setTimeout(() => setRefreshing(false), 500);
-    }
-  };
 
   // Auto-track connecting wait duration
   useEffect(() => {
@@ -82,11 +70,11 @@ const StudioScreenContent: React.FC = () => {
 
         <div className="flex items-center gap-3">
           <button
-            onClick={handleRefresh}
+            onClick={() => window.location.reload()}
             className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs tracking-wider flex items-center gap-2 cursor-pointer shadow-lg active:scale-95 transition-all"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-            <span>{refreshing ? 'SYNCING FEED...' : 'RETRY FEED'}</span>
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>RETRY FEED</span>
           </button>
           <Link
             to="/host"
@@ -179,11 +167,11 @@ const StudioScreenContent: React.FC = () => {
           </div>
 
           <button
-            onClick={handleRefresh}
-            title="Force sync studio feed"
+            onClick={() => window.location.reload()}
+            title="Force reload studio feed"
             className="p-1.5 rounded-lg bg-slate-900/90 border border-slate-700 hover:border-slate-500 text-slate-300 hover:text-white cursor-pointer shadow-md"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-amber-400' : ''}`} />
+            <RefreshCw className="w-3.5 h-3.5" />
           </button>
 
           <button

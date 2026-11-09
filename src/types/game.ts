@@ -28,7 +28,6 @@ export interface ContentItem {
   title: string;
   prompt: string;
   answer: string;
-  options?: string[]; // Multiple choice options (e.g. for Number minigame)
   mediaUrl?: string;
   blurAmount?: number;
   createdAt: string;
@@ -53,7 +52,6 @@ export interface ActiveRoundSnapshot {
   title: string;
   prompt: string;
   answer?: string; // Stripped for /studio until answerRevealed === true
-  options?: string[]; // Multiple choice options displayed on Studio
   mediaUrl?: string;
   blurAmount?: number;
 }
@@ -207,9 +205,9 @@ export const CONTENT_CATEGORIES: {
   },
   {
     id: 'number',
-    label: 'Number (Multiple Choice)',
+    label: 'Number',
     mediaType: 'none',
-    description: 'Multiple choice numeric football challenges with 4 options (A, B, C, D) — answer reveals when Host presses Reveal Answer.',
+    description: 'Numeric football stat challenges — answer reveals only when Host presses Reveal Answer.',
   },
   {
     id: 'audio',

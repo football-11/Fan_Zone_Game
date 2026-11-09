@@ -700,27 +700,27 @@ export const StudioStageView: React.FC<{
                             </span>
 
                             {cell.owner ? (
-                              <div className="flex flex-col items-center justify-center gap-1 sm:gap-1.5 max-w-full h-full py-0.5">
+                              <div className="flex flex-col items-center justify-center gap-1 max-w-full">
                                 <PlayerPortraitArtwork
                                   playerName={cell.playerName}
                                   playerImageUrl={cell.playerImageUrl}
                                   teamColor={cell.owner}
                                   className={
                                     isPreview
-                                      ? 'w-10 h-10'
-                                      : 'w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 lg:w-32 lg:h-32 xl:w-36 xl:h-36 shadow-[0_4px_24px_rgba(0,0,0,0.55)] ring-2 sm:ring-4 ring-white/20'
+                                      ? 'w-7 h-7'
+                                      : 'w-14 h-14 lg:w-16 lg:h-16'
                                   }
                                 />
                                 <span
-                                  className={`font-['Outfit'] font-black text-white leading-tight truncate max-w-full px-1.5 drop-shadow-md ${
-                                    isPreview ? 'text-[9px]' : 'text-xs sm:text-sm lg:text-base xl:text-lg'
+                                  className={`font-['Outfit'] font-black text-white leading-tight truncate max-w-full px-1 ${
+                                    isPreview ? 'text-[9px]' : 'text-base lg:text-xl'
                                   }`}
                                 >
                                   {cell.playerName}
                                 </span>
                                 <span
-                                  className={`font-['Plus_Jakarta_Sans'] font-extrabold uppercase tracking-widest ${
-                                    isPreview ? 'text-[6px]' : 'text-[9px] sm:text-[10px] lg:text-xs'
+                                  className={`font-['Plus_Jakarta_Sans'] font-bold uppercase tracking-wider ${
+                                    isPreview ? 'text-[6px]' : 'text-[11px]'
                                   } text-white/90`}
                                 >
                                   {cell.owner === 'red' ? 'RED TEAM' : 'BLUE TEAM'}

@@ -28,6 +28,7 @@ export interface ContentItem {
   title: string;
   prompt: string;
   answer: string;
+  options?: string[]; // Multiple choice options (e.g. for Number minigame)
   mediaUrl?: string;
   blurAmount?: number;
   createdAt: string;
@@ -52,6 +53,7 @@ export interface ActiveRoundSnapshot {
   title: string;
   prompt: string;
   answer?: string; // Stripped for /studio until answerRevealed === true
+  options?: string[]; // Multiple choice options displayed on Studio
   mediaUrl?: string;
   blurAmount?: number;
 }
@@ -132,6 +134,8 @@ export interface GameSessionState {
   boardDeckId?: number;
   cards: BoardCard[];
   activeMiniGame: ActiveMiniGameState | null;
+  usedItemIds?: string[];
+  autoSelectionEnabled?: boolean;
   updatedAt: number;
 }
 
@@ -203,9 +207,9 @@ export const CONTENT_CATEGORIES: {
   },
   {
     id: 'number',
-    label: 'Number',
+    label: 'Number (Multiple Choice)',
     mediaType: 'none',
-    description: 'Numeric football stat challenges — answer reveals only when Host presses Reveal Answer.',
+    description: 'Multiple choice numeric football challenges with 4 options (A, B, C, D) — answer reveals when Host presses Reveal Answer.',
   },
   {
     id: 'audio',

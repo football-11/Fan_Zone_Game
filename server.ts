@@ -26,6 +26,10 @@ import {
   getBzzoiroTeamLogoUrl,
   resolveBzzoiroPlayerImageUrl,
 } from './src/data/bzzoiroSports.ts';
+import {
+  getAutomaticContentItem,
+  AUTOMATIC_CONTENT_ITEMS,
+} from './src/data/automaticContentPool.ts';
 
 dotenv.config();
 
@@ -364,6 +368,7 @@ function createDefaultContentItems(): ContentItem[] {
       title: 'Messi’s 2012 Calendar Year Goals',
       prompt: 'How many official goals did Lionel Messi score in the 2012 calendar year for club and country?',
       answer: '91 Goals',
+      options: ['86 Goals', '91 Goals', '73 Goals', '95 Goals'],
       createdAt: now,
     },
     {
@@ -372,6 +377,7 @@ function createDefaultContentItems(): ContentItem[] {
       title: 'Fastest World Cup Goal (Seconds)',
       prompt: 'In how many seconds did Hakan Şükür score the fastest goal in FIFA World Cup history in 2002?',
       answer: '11 Seconds (10.8s)',
+      options: ['11 Seconds', '15 Seconds', '19 Seconds', '8 Seconds'],
       createdAt: now,
     },
     {
@@ -380,6 +386,7 @@ function createDefaultContentItems(): ContentItem[] {
       title: 'Real Madrid European Cup Titles',
       prompt: 'How many UEFA Champions League / European Cup trophies had Real Madrid won after the 2024 Final at Wembley?',
       answer: '15 Titles',
+      options: ['13 Titles', '14 Titles', '15 Titles', '16 Titles'],
       createdAt: now,
     },
     // 7. Audio Clips
@@ -461,7 +468,7 @@ function loadDatabase(): PersistentDatabase {
 
 function saveDatabase(dbData: PersistentDatabase) {
   try {
-    dbData.session.updatedAt = Date.now();
+    dbData.session.updatedAt = Math.max(Date.now(), (dbData.session.updatedAt || 0) + 1);
     fs.writeFileSync(DB_FILE, JSON.stringify(dbData, null, 2), 'utf-8');
   } catch (err) {
     console.error('Failed to persist DB file:', err);
@@ -545,11 +552,21 @@ const OWNER_PASSCODES = new Set([
 ]);
 const validHostTokens = new Set<string>(['fanzone-owner-live-token']);
 
+function isValidHostToken(token?: string | null): boolean {
+  if (!token) return false;
+  const t = String(token).trim();
+  if (t === 'fanzone-owner-live-token' || t.startsWith('host_')) {
+    validHostTokens.add(t);
+    return true;
+  }
+  return validHostTokens.has(t);
+}
+
 function isAuthorizedRequest(req: express.Request): boolean {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) return false;
   const token = authHeader.slice('Bearer '.length).trim();
-  return validHostTokens.has(token) || token.startsWith('host_');
+  return isValidHostToken(token);
 }
 
 // Configure Multer for Image & Audio Uploads
@@ -661,34 +678,42 @@ async function startServer() {
     }
   }, 1000);
 
-  // Build initial snapshot for a category
-  function createSnapshotForCategory(category: MiniGameCategory, preferredItemId?: string) {
+  // Build initial snapshot for a category with automatic question and photo selection
+  function createSnapshotForCategory(
+    category: MiniGameCategory,
+    preferredItemId?: string,
+    forceDifferentFromId?: string
+  ) {
     if (category === 'tictactoe') return null;
-    const categoryItems = dbState.contentItems.filter((item) => item.category === category);
-    const chosen =
-      (preferredItemId && categoryItems.find((i) => i.id === preferredItemId)) ||
-      categoryItems[0];
-    if (!chosen) {
-      return {
-        itemId: 'fallback',
-        category: category as ContentCategory,
-        title: `${category.toUpperCase()} Challenge`,
-        prompt: `Identify this ${category} challenge!`,
-        answer: 'Sample Official Answer',
-        mediaUrl:
-          category === 'jersey'
-            ? '/samples/sample_jersey_kit.jpg'
-            : category === 'photo'
-            ? '/samples/sample_player_action.jpg'
-            : category === 'stadium'
-            ? '/samples/sample_stadium_night.jpg'
-            : category === 'logo'
-            ? '/samples/sample_club_crest.jpg'
-            : category === 'audio'
-            ? '/samples/stadium_anthem.wav'
-            : undefined,
-      };
+    const session = dbState.session;
+    if (!Array.isArray(session.usedItemIds)) {
+      session.usedItemIds = [];
     }
+    if (session.autoSelectionEnabled === undefined) {
+      session.autoSelectionEnabled = true;
+    }
+
+    const categoryItems = dbState.contentItems.filter((item) => item.category === category);
+    let chosen: ContentItem | undefined;
+
+    if (preferredItemId && preferredItemId !== 'auto') {
+      chosen = categoryItems.find((i) => i.id === preferredItemId);
+    }
+
+    // If no specific item requested or set to auto, automatically select question & photo
+    if (!chosen) {
+      chosen = getAutomaticContentItem(
+        category,
+        categoryItems,
+        session.usedItemIds,
+        forceDifferentFromId
+      );
+    }
+
+    if (chosen && chosen.id && !session.usedItemIds.includes(chosen.id)) {
+      session.usedItemIds.push(chosen.id);
+    }
+
     // Snapshot Isolation: deep-clone item fields so later edits/deletes in /content never break an active round
     return {
       itemId: chosen.id,
@@ -696,6 +721,7 @@ async function startServer() {
       title: chosen.title,
       prompt: chosen.prompt,
       answer: chosen.answer,
+      options: Array.isArray(chosen.options) ? [...chosen.options] : undefined,
       mediaUrl: chosen.mediaUrl,
       blurAmount: typeof chosen.blurAmount === 'number' ? chosen.blurAmount : 28,
     };
@@ -844,6 +870,7 @@ async function startServer() {
         session.activeMiniGame = null;
         session.boardDeckId = (session.boardDeckId || 1) + 1;
         session.cards = createShuffledCards();
+        session.usedItemIds = [];
         cachedTicTacToe = createFreshTicTacToeState('red');
         break;
       }
@@ -865,6 +892,7 @@ async function startServer() {
             title: customTitle !== undefined && customTitle.trim() ? customTitle.trim() : baseSnapshot.title,
             prompt: customPrompt !== undefined && customPrompt.trim() ? customPrompt.trim() : baseSnapshot.prompt,
             answer: customAnswer !== undefined && customAnswer.trim() ? customAnswer.trim() : baseSnapshot.answer,
+            options: Array.isArray(payload.options) ? payload.options : baseSnapshot.options,
             blurAmount:
               customBlur !== undefined && !Number.isNaN(customBlur)
                 ? Math.max(0, Math.min(60, customBlur))
@@ -876,6 +904,36 @@ async function startServer() {
           mg.imageUnblurred = false;
           mg.audioPlaying = false;
         }
+        break;
+      }
+
+      case 'minigame:autoSelect': {
+        const mg = session.activeMiniGame;
+        if (!mg || mg.category === 'tictactoe') break;
+        const currentItemId = mg.snapshot?.itemId;
+        const freshSnapshot = createSnapshotForCategory(mg.category, 'auto', currentItemId);
+        if (freshSnapshot) {
+          mg.snapshot = freshSnapshot;
+          mg.timerSeconds = 30;
+          mg.timerRunning = false;
+          mg.answerRevealed = false;
+          mg.imageUnblurred = false;
+          mg.audioPlaying = false;
+          mg.scored = false;
+          mg.scoreResult = 'pending';
+          mg.awardedTeam = null;
+        }
+        break;
+      }
+
+      case 'session:toggleAutoSelection': {
+        session.autoSelectionEnabled =
+          payload.enabled !== undefined ? Boolean(payload.enabled) : !session.autoSelectionEnabled;
+        break;
+      }
+
+      case 'session:resetUsedItems': {
+        session.usedItemIds = [];
         break;
       }
 
@@ -1100,7 +1158,7 @@ async function startServer() {
     const url = new URL(req.url || '/ws', `http://${req.headers.host || 'localhost'}`);
     const roleParam = url.searchParams.get('role');
     const tokenParam = url.searchParams.get('token') || '';
-    const isHost = roleParam === 'host' && validHostTokens.has(tokenParam);
+    const isHost = roleParam === 'host' && isValidHostToken(tokenParam);
 
     const clientMeta: ClientMeta = {
       ws,
@@ -1129,7 +1187,7 @@ async function startServer() {
     ws.on('message', (raw) => {
       try {
         const msg = JSON.parse(String(raw));
-        if (msg.type === 'auth:upgrade' && validHostTokens.has(msg.token)) {
+        if (msg.type === 'auth:upgrade' && isValidHostToken(msg.token)) {
           clientMeta.role = 'host';
           ws.send(
             JSON.stringify({
@@ -1140,8 +1198,16 @@ async function startServer() {
           );
           return;
         }
-        if (msg.type === 'host:action' && clientMeta.role === 'host') {
-          handleHostAction(msg.action, msg.payload || {});
+        if (msg.type === 'host:action') {
+          if (clientMeta.role !== 'host') {
+            if (isValidHostToken(msg.token) || isValidHostToken(tokenParam)) {
+              clientMeta.role = 'host';
+            }
+          }
+          if (clientMeta.role === 'host' || isValidHostToken(msg.token) || isValidHostToken(tokenParam)) {
+            clientMeta.role = 'host';
+            handleHostAction(msg.action, msg.payload || {});
+          }
         }
       } catch (e) {
         console.error('WebSocket message error:', e);
@@ -1216,7 +1282,7 @@ async function startServer() {
     const sinceParam = Number(req.query.since || 0);
     const serverUpdatedAt = dbState.session.updatedAt || 0;
     const timerActive = Boolean(dbState.session.activeMiniGame?.timerRunning);
-    if (sinceParam > 0 && !timerActive && (serverUpdatedAt === 0 || serverUpdatedAt <= sinceParam)) {
+    if (sinceParam > 0 && !timerActive && serverUpdatedAt === sinceParam) {
       return res.json({ unchanged: true, updatedAt: serverUpdatedAt });
     }
     res.json({
@@ -1345,7 +1411,7 @@ async function startServer() {
     if (!isAuthorizedRequest(req)) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
-    const { category, title, prompt, answer, mediaUrl, blurAmount } = req.body || {};
+    const { category, title, prompt, answer, mediaUrl, blurAmount, options } = req.body || {};
     if (!category || !answer) {
       return res.status(400).json({ error: 'Category and answer are required' });
     }
@@ -1359,6 +1425,7 @@ async function startServer() {
       title: String(title || prompt || 'Broadcast Item').trim(),
       prompt: String(prompt || title || 'Identify this football clue!').trim(),
       answer: String(answer).trim(),
+      options: Array.isArray(options) && options.length > 0 ? options.map(String) : undefined,
       mediaUrl: mediaUrl ? String(mediaUrl).trim() : undefined,
       blurAmount: parsedBlur,
       createdAt: new Date().toISOString(),
@@ -1378,7 +1445,7 @@ async function startServer() {
       return res.status(404).json({ error: 'Content item not found' });
     }
     const existing = dbState.contentItems[idx];
-    const { title, prompt, answer, mediaUrl, blurAmount } = req.body || {};
+    const { title, prompt, answer, mediaUrl, blurAmount, options } = req.body || {};
     const parsedBlur =
       blurAmount !== undefined && !Number.isNaN(Number(blurAmount))
         ? Math.max(0, Math.min(60, Number(blurAmount)))
@@ -1388,6 +1455,7 @@ async function startServer() {
       title: title !== undefined ? String(title).trim() : existing.title,
       prompt: prompt !== undefined ? String(prompt).trim() : existing.prompt,
       answer: answer !== undefined ? String(answer).trim() : existing.answer,
+      options: Array.isArray(options) ? options.map(String) : existing.options,
       mediaUrl: mediaUrl !== undefined ? (mediaUrl ? String(mediaUrl).trim() : undefined) : existing.mediaUrl,
       blurAmount: parsedBlur,
       updatedAt: new Date().toISOString(),

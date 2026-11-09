@@ -897,7 +897,7 @@ export const StudioStageView: React.FC<{
                     </div>
                   )}
 
-                  {(mg.category === 'quiz' || mg.category === 'number') && (
+                  {mg.category === 'quiz' && (
                     <div className="w-full max-w-4xl flex flex-col items-center justify-center text-center p-6 sm:p-8 rounded-2xl bg-gradient-to-b from-[#0E1E38]/90 via-[#091528]/95 to-[#061021] border-2 border-amber-500/35 shadow-[0_0_50px_rgba(245,158,11,0.15)] relative overflow-hidden animate-minigame-open">
                       {/* Top Specular Neon Accent Line */}
                       <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-transparent via-[#F59E0B] to-transparent" />
@@ -906,7 +906,7 @@ export const StudioStageView: React.FC<{
                       <div className="flex items-center gap-2 mb-4">
                         <CategoryBadgeArtwork category={mg.category} className="w-6 h-6 shrink-0" />
                         <span className="font-['Plus_Jakarta_Sans'] font-extrabold text-[#F59E0B] text-xs sm:text-sm uppercase tracking-widest">
-                          {mg.category === 'quiz' ? 'OFFICIAL FOOTBALL TRIVIA QUESTION' : 'STATISTICAL NUMBER CHALLENGE'}
+                          OFFICIAL FOOTBALL TRIVIA QUESTION
                         </span>
                       </div>
 
@@ -918,6 +918,150 @@ export const StudioStageView: React.FC<{
                       >
                         {mg.snapshot?.prompt || 'Prepare for the broadcast question!'}
                       </h3>
+                    </div>
+                  )}
+
+                  {mg.category === 'number' && (
+                    <div className="w-full max-w-5xl flex flex-col items-center justify-center p-4 sm:p-7 rounded-2xl bg-gradient-to-b from-[#0E1E38]/95 via-[#091528]/95 to-[#050D1B] border-2 border-amber-500/40 shadow-[0_0_60px_rgba(245,158,11,0.18)] relative overflow-hidden animate-minigame-open">
+                      {/* Top Specular Neon Accent Line */}
+                      <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-transparent via-[#F59E0B] to-transparent" />
+
+                      {/* Multiple Choice Kicker Header */}
+                      <div className="flex items-center justify-between w-full mb-3 sm:mb-4 px-1">
+                        <div className="flex items-center gap-2">
+                          <CategoryBadgeArtwork category="number" className={isPreview ? 'w-4 h-4' : 'w-6 h-6'} />
+                          <span className="font-['Plus_Jakarta_Sans'] font-extrabold text-[#F59E0B] text-xs sm:text-sm uppercase tracking-widest">
+                            NUMBER MULTIPLE CHOICE CHALLENGE
+                          </span>
+                        </div>
+                        <span className="px-2.5 py-0.5 rounded-lg bg-amber-500/15 border border-amber-400/40 text-[10px] sm:text-xs font-['Plus_Jakarta_Sans'] font-bold text-amber-300 tracking-wider uppercase">
+                          4 OPTIONS · CHOOSE A, B, C OR D
+                        </span>
+                      </div>
+
+                      {/* Question Text */}
+                      <h3
+                        className={`font-['Outfit'] font-black text-white text-center leading-snug [text-wrap:balance] mb-2 sm:mb-4 drop-shadow-md ${
+                          isPreview ? 'text-xs' : 'text-xl sm:text-2xl md:text-3xl lg:text-4xl'
+                        }`}
+                      >
+                        {mg.snapshot?.prompt || 'Answer the statistical football challenge!'}
+                      </h3>
+
+                      {/* 4 Broadcast Multiple Choice Options Grid (A, B, C, D) */}
+                      {(() => {
+                        const rawOptions =
+                          Array.isArray(mg.snapshot?.options) && mg.snapshot!.options.length >= 4
+                            ? mg.snapshot!.options.slice(0, 4)
+                            : Array.isArray(mg.snapshot?.options) && mg.snapshot!.options.length > 0
+                            ? mg.snapshot!.options
+                            : mg.snapshot?.answer
+                            ? [mg.snapshot.answer, 'Option B', 'Option C', 'Option D']
+                            : ['Option A', 'Option B', 'Option C', 'Option D'];
+
+                        const letters = ['A', 'B', 'C', 'D'];
+                        const normalize = (s?: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                        const revealedAns = normalize(mg.snapshot?.answer);
+
+                        return (
+                          <div
+                            className={`w-full grid grid-cols-1 sm:grid-cols-2 ${
+                              isPreview ? 'gap-1.5 mt-1' : 'gap-3 sm:gap-4 mt-3'
+                            }`}
+                          >
+                            {rawOptions.map((opt, idx) => {
+                              const letter = letters[idx] || String.fromCharCode(65 + idx);
+                              const optNorm = normalize(opt);
+                              const isCorrect = Boolean(
+                                mg.answerRevealed &&
+                                  revealedAns &&
+                                  (optNorm === revealedAns ||
+                                    revealedAns.includes(optNorm) ||
+                                    optNorm.includes(revealedAns))
+                              );
+                              const isRevealed = Boolean(mg.answerRevealed && revealedAns);
+                              const isDimmed = isRevealed && !isCorrect;
+
+                              return (
+                                <div
+                                  key={idx}
+                                  className={`relative flex items-center transition-all duration-500 rounded-2xl overflow-hidden ${
+                                    isPreview ? 'p-1.5 gap-2 border' : 'p-3.5 sm:p-5 gap-3 sm:gap-4 border-2'
+                                  } ${
+                                    isCorrect
+                                      ? 'bg-gradient-to-r from-emerald-950/95 via-[#062417] to-emerald-950/95 border-[#10B981] shadow-[0_0_36px_rgba(16,185,129,0.55)] scale-[1.02] z-10'
+                                      : isDimmed
+                                      ? 'bg-[#020611]/60 border-slate-800/80 opacity-40 grayscale-[35%]'
+                                      : 'bg-[#030914]/85 border-slate-700/80 hover:border-amber-400/50 shadow-[0_4px_24px_rgba(0,0,0,0.45)]'
+                                  }`}
+                                >
+                                  {isCorrect && (
+                                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-400 via-emerald-200 to-emerald-400" />
+                                  )}
+
+                                  {/* Letter Badge (A, B, C, D) */}
+                                  <div
+                                    className={`shrink-0 rounded-xl flex items-center justify-center font-['Outfit'] font-black transition-all duration-300 ${
+                                      isPreview
+                                        ? 'w-5 h-5 text-[10px] rounded-md'
+                                        : 'w-9 h-9 sm:w-11 sm:h-11 text-sm sm:text-lg border-2'
+                                    } ${
+                                      isCorrect
+                                        ? 'bg-[#10B981] border-[#10B981] text-slate-950 shadow-[0_0_16px_rgba(16,185,129,0.8)]'
+                                        : isDimmed
+                                        ? 'bg-slate-900 border-slate-800 text-slate-500'
+                                        : 'bg-gradient-to-br from-amber-500/25 to-amber-950/40 border-amber-400/50 text-amber-300 shadow-inner'
+                                    }`}
+                                  >
+                                    {letter}
+                                  </div>
+
+                                  {/* Option Text */}
+                                  <div className="flex-1 min-w-0">
+                                    <span
+                                      className={`block font-['Outfit'] font-black truncate tracking-wide transition-colors ${
+                                        isPreview
+                                          ? 'text-[10px] leading-tight'
+                                          : 'text-base sm:text-xl lg:text-2xl'
+                                      } ${
+                                        isCorrect
+                                          ? 'text-white drop-shadow-[0_2px_8px_rgba(16,185,129,0.4)]'
+                                          : isDimmed
+                                          ? 'text-slate-400'
+                                          : 'text-slate-100'
+                                      }`}
+                                    >
+                                      {opt}
+                                    </span>
+                                  </div>
+
+                                  {/* Revealed Correct Indicator */}
+                                  {isCorrect && (
+                                    <div
+                                      className={`shrink-0 flex items-center gap-1 font-['Plus_Jakarta_Sans'] font-extrabold uppercase rounded-lg bg-emerald-500/25 border border-emerald-400 text-emerald-300 animate-answer-reveal ${
+                                        isPreview
+                                          ? 'px-1 py-0.2 text-[8px]'
+                                          : 'px-2.5 py-1 text-xs sm:text-sm'
+                                      }`}
+                                    >
+                                      <svg
+                                        className={isPreview ? 'w-2.5 h-2.5' : 'w-4 h-4'}
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth={3}
+                                        viewBox="0 0 24 24"
+                                      >
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                      </svg>
+                                      <span>CORRECT</span>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
 

@@ -41,11 +41,13 @@ interface GameSyncContextValue {
   logoutOwner: () => void;
   sendHostAction: (action: string, payload?: Record<string, any>) => Promise<void>;
   refreshContentItems: () => Promise<void>;
+  forceSync: () => Promise<void>;
   createContentItem: (itemInput: {
     category: ContentCategory;
     title: string;
     prompt: string;
     answer: string;
+    options?: string[];
     mediaUrl?: string;
     blurAmount?: number;
   }) => Promise<void>;
@@ -55,6 +57,7 @@ interface GameSyncContextValue {
       title?: string;
       prompt?: string;
       answer?: string;
+      options?: string[];
       mediaUrl?: string;
       blurAmount?: number;
     }
@@ -267,6 +270,7 @@ const DEFAULT_FALLBACK_ITEMS: ContentItem[] = [
     title: 'Messi’s 2012 Calendar Year Goals',
     prompt: 'How many official goals did Lionel Messi score in the 2012 calendar year for club and country?',
     answer: '91 Goals',
+    options: ['86 Goals', '91 Goals', '73 Goals', '95 Goals'],
     createdAt: new Date().toISOString(),
   },
   {
@@ -510,88 +514,87 @@ export const GameSyncProvider: React.FC<{
     };
   }, [role, triggerAudioPlayback]);
 
-  const fetchInitialState = useCallback(async () => {
-    if (inFlightPollRef.current) return;
-    inFlightPollRef.current = true;
-    const currentUpdatedAt = stateRef.current?.updatedAt || 0;
+  const fetchInitialState = useCallback(
+    async (ignoreSince: boolean = false) => {
+      if (inFlightPollRef.current) return;
+      inFlightPollRef.current = true;
+      const currentUpdatedAt = ignoreSince ? 0 : stateRef.current?.updatedAt || 0;
 
-    try {
-      if (role === 'host' && ownerAuth.authenticated && ownerAuth.token) {
-        const res = await fetch(`/api/host/state?since=${currentUpdatedAt}`, {
-          headers: { Authorization: `Bearer ${ownerAuth.token}` },
+      try {
+        if (role === 'host' && ownerAuth.authenticated && ownerAuth.token) {
+          const res = await fetch(`/api/host/state?since=${currentUpdatedAt}`, {
+            headers: { Authorization: `Bearer ${ownerAuth.token}` },
+            cache: 'no-store',
+          });
+          const ct = res.headers.get('content-type') || '';
+          if (res.ok && ct.includes('application/json')) {
+            const data = await res.json();
+            const serverUpdatedAt = Number(data.updatedAt || data.state?.updatedAt || 0);
+
+            // If a serverless instance cold-restarted and lost state, re-hydrate it from Host
+            if (currentUpdatedAt > 0 && serverUpdatedAt < currentUpdatedAt && stateRef.current) {
+              fetch('/api/host/action', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${ownerAuth.token}`,
+                },
+                body: JSON.stringify({
+                  action: 'session:sync',
+                  clientState: stateRef.current,
+                  contentItems: contentItemsRef.current,
+                }),
+              }).catch(() => {});
+              return;
+            }
+
+            if (!data.unchanged && data.state && (serverUpdatedAt > currentUpdatedAt || ignoreSince)) {
+              stateRef.current = data.state;
+              setState(data.state);
+              if (Array.isArray(data.contentItems) && data.contentItems.length > 0) {
+                contentItemsRef.current = data.contentItems;
+                setContentItems(data.contentItems);
+              }
+            }
+            return;
+          }
+        }
+
+        const res = await fetch(`/api/studio/state?since=${currentUpdatedAt}`, {
           cache: 'no-store',
         });
         const ct = res.headers.get('content-type') || '';
         if (res.ok && ct.includes('application/json')) {
           const data = await res.json();
-          const serverUpdatedAt = Number(data.updatedAt || data.state?.updatedAt || 0);
-
-          // If a Vercel serverless instance cold-restarted and lost state, re-hydrate it from Host
-          if (currentUpdatedAt > 0 && serverUpdatedAt < currentUpdatedAt && stateRef.current) {
-            fetch('/api/host/action', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${ownerAuth.token}`,
-              },
-              body: JSON.stringify({
-                action: 'session:sync',
-                clientState: stateRef.current,
-                contentItems: contentItemsRef.current,
-              }),
-            }).catch(() => {});
-            return;
-          }
-
-          if (!data.unchanged && data.state && serverUpdatedAt > currentUpdatedAt) {
-            stateRef.current = data.state;
-            setState(data.state);
-            if (Array.isArray(data.contentItems) && data.contentItems.length > 0) {
-              contentItemsRef.current = data.contentItems;
-              setContentItems(data.contentItems);
-            }
-          }
-          return;
-        }
-      }
-
-      const res = await fetch(`/api/studio/state?since=${currentUpdatedAt}`, {
-        cache: 'no-store',
-      });
-      const ct = res.headers.get('content-type') || '';
-      if (res.ok && ct.includes('application/json')) {
-        const data = await res.json();
-        if (data.unchanged) return;
-        if (data.state && Array.isArray(data.state.cards)) {
-          const incomingUpdatedAt = Number(data.state.updatedAt || data.updatedAt || 0);
-          const currentLocalTimestamp = stateRef.current?.updatedAt || 0;
-          const isFreshOrNewer =
-            currentLocalTimestamp === 0 ||
-            incomingUpdatedAt >= currentLocalTimestamp ||
-            Date.now() - lastLocalSyncAtRef.current > 3000;
-          if (isFreshOrNewer || !stateRef.current) {
+          if (data.unchanged) return;
+          if (data.state && Array.isArray(data.state.cards)) {
+            // For Studio screen: Authoritative server state is unconditionally applied
             stateRef.current = data.state;
             setState(data.state);
           }
         }
+      } catch {
+        // Keep local state if API is static or offline
+      } finally {
+        inFlightPollRef.current = false;
       }
-    } catch {
-      // Keep local state if API is static
-    } finally {
-      inFlightPollRef.current = false;
-    }
-  }, [role, ownerAuth.authenticated, ownerAuth.token]);
+    },
+    [role, ownerAuth.authenticated, ownerAuth.token]
+  );
+
+  const forceSync = useCallback(async () => {
+    await fetchInitialState(true);
+  }, [fetchInitialState]);
 
   useEffect(() => {
     fetchInitialState();
   }, [fetchInitialState]);
 
-  // High-speed delta polling when WebSocket is disconnected (250ms on /studio for near-instant remote stage updates)
+  // Reliable sync polling: fast (300ms) when disconnected, heartbeat (1200ms) when connected.
+  // Never pauses when document is in background or iframe unfocused.
   useEffect(() => {
-    if (connected) return;
-    const intervalMs = role === 'studio' ? 250 : 1800;
+    const intervalMs = role === 'studio' ? (connected ? 1200 : 300) : (connected ? 3000 : 1500);
     const pollId = setInterval(() => {
-      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
       fetchInitialState();
     }, intervalMs);
     return () => clearInterval(pollId);
@@ -670,6 +673,7 @@ export const GameSyncProvider: React.FC<{
         try {
           const msg = JSON.parse(event.data);
           if (msg.type === 'state:update' && msg.state) {
+            stateRef.current = msg.state;
             setState(msg.state);
             if (role === 'host') {
               try {
@@ -972,6 +976,7 @@ export const GameSyncProvider: React.FC<{
                   title: chosen.title,
                   prompt: chosen.prompt,
                   answer: chosen.answer,
+                  options: chosen.options ? [...chosen.options] : undefined,
                   mediaUrl: chosen.mediaUrl,
                   blurAmount: typeof chosen.blurAmount === 'number' ? chosen.blurAmount : 28,
                 },
@@ -1036,6 +1041,12 @@ export const GameSyncProvider: React.FC<{
                 title: payload.title?.trim() || baseSnap.title,
                 prompt: payload.prompt?.trim() || baseSnap.prompt,
                 answer: payload.answer?.trim() || baseSnap.answer,
+                options:
+                  Array.isArray(payload.options) && payload.options.length > 0
+                    ? payload.options
+                    : baseSnap.options
+                    ? [...baseSnap.options]
+                    : undefined,
                 mediaUrl: baseSnap.mediaUrl,
                 blurAmount:
                   customBlur !== undefined && !Number.isNaN(customBlur)
@@ -1068,6 +1079,7 @@ export const GameSyncProvider: React.FC<{
                 title: fresh.title,
                 prompt: fresh.prompt,
                 answer: fresh.answer,
+                options: fresh.options ? [...fresh.options] : undefined,
                 mediaUrl: fresh.mediaUrl,
                 blurAmount: typeof fresh.blurAmount === 'number' ? fresh.blurAmount : 28,
               };
@@ -1301,21 +1313,25 @@ export const GameSyncProvider: React.FC<{
     // 1. Compute and broadcast locally in 0ms for instant /host and /studio responsiveness
     const nextState = applyLocalAction(action, payload);
 
-    // 2. If WebSocket is active, push over WebSocket
+    // 2. If WebSocket is active, push over WebSocket with authentication token
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(
-        JSON.stringify({
-          type: 'host:action',
-          action,
-          payload,
-        })
-      );
-      return;
+      try {
+        wsRef.current.send(
+          JSON.stringify({
+            type: 'host:action',
+            action,
+            payload,
+            token: ownerAuth.token,
+          })
+        );
+      } catch {
+        // ignore websocket send error
+      }
     }
 
-    // 3. Push authoritative clientState to serverless API so remote /studio devices receive the exact state
+    // 3. Always push authoritative clientState to backend REST API so server disk & remote studios stay 100% in sync
     try {
-      await fetch('/api/host/action', {
+      fetch('/api/host/action', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1326,7 +1342,7 @@ export const GameSyncProvider: React.FC<{
           payload,
           clientState: nextState,
         }),
-      });
+      }).catch(() => {});
     } catch {
       // Local state already updated and broadcast
     }
@@ -1360,6 +1376,7 @@ export const GameSyncProvider: React.FC<{
     title: string;
     prompt: string;
     answer: string;
+    options?: string[];
     mediaUrl?: string;
     blurAmount?: number;
   }) => {
@@ -1374,6 +1391,7 @@ export const GameSyncProvider: React.FC<{
       title: itemInput.title,
       prompt: itemInput.prompt,
       answer: itemInput.answer,
+      options: itemInput.options ? [...itemInput.options] : undefined,
       mediaUrl: itemInput.mediaUrl,
       blurAmount: parsedBlur,
       createdAt: new Date().toISOString(),
@@ -1416,6 +1434,7 @@ export const GameSyncProvider: React.FC<{
       title?: string;
       prompt?: string;
       answer?: string;
+      options?: string[];
       mediaUrl?: string;
       blurAmount?: number;
     }
@@ -1428,6 +1447,7 @@ export const GameSyncProvider: React.FC<{
             title: updates.title !== undefined ? updates.title : item.title,
             prompt: updates.prompt !== undefined ? updates.prompt : item.prompt,
             answer: updates.answer !== undefined ? updates.answer : item.answer,
+            options: updates.options !== undefined ? updates.options : item.options,
             mediaUrl: updates.mediaUrl !== undefined ? updates.mediaUrl : item.mediaUrl,
             blurAmount:
               updates.blurAmount !== undefined
@@ -1491,6 +1511,7 @@ export const GameSyncProvider: React.FC<{
         logoutOwner,
         sendHostAction,
         refreshContentItems,
+        forceSync,
         createContentItem,
         updateContentItem,
         deleteContentItem,

@@ -5,16 +5,16 @@
     "blueScore": 0,
     "activeTeam": "red",
     "lastScorePulse": null,
-    "selectedCardNumber": 1,
+    "selectedCardNumber": 3,
     "stage": "board",
-    "boardDeckId": 5,
+    "boardDeckId": 11,
     "cards": [
       {
         "cardNumber": 1,
         "emojiId": "cry",
         "emojiLabel": "Sad Tear",
-        "category": "audio",
-        "categoryTitle": "Audio",
+        "category": "number",
+        "categoryTitle": "Number",
         "revealed": false,
         "scored": false,
         "scoreResult": "pending",
@@ -35,8 +35,8 @@
         "cardNumber": 3,
         "emojiId": "love",
         "emojiLabel": "Heart Eyes",
-        "category": "quiz",
-        "categoryTitle": "Quiz",
+        "category": "logo",
+        "categoryTitle": "Guess the Team Logo",
         "revealed": false,
         "scored": false,
         "scoreResult": "pending",
@@ -46,8 +46,8 @@
         "cardNumber": 4,
         "emojiId": "shock",
         "emojiLabel": "Shocked",
-        "category": "photo",
-        "categoryTitle": "Guess the Player Photo",
+        "category": "audio",
+        "categoryTitle": "Audio",
         "revealed": false,
         "scored": false,
         "scoreResult": "pending",
@@ -57,8 +57,8 @@
         "cardNumber": 5,
         "emojiId": "silly",
         "emojiLabel": "Wink Tongue",
-        "category": "number",
-        "categoryTitle": "Number",
+        "category": "quiz",
+        "categoryTitle": "Quiz",
         "revealed": false,
         "scored": false,
         "scoreResult": "pending",
@@ -68,8 +68,8 @@
         "cardNumber": 6,
         "emojiId": "smali",
         "emojiLabel": "Big Smile",
-        "category": "logo",
-        "categoryTitle": "Guess the Team Logo",
+        "category": "tictactoe",
+        "categoryTitle": "Football Tic-Tac-Toe",
         "revealed": false,
         "scored": false,
         "scoreResult": "pending",
@@ -90,8 +90,8 @@
         "cardNumber": 8,
         "emojiId": "cool",
         "emojiLabel": "Cool Shades",
-        "category": "tictactoe",
-        "categoryTitle": "Football Tic-Tac-Toe",
+        "category": "photo",
+        "categoryTitle": "Guess the Player Photo",
         "revealed": false,
         "scored": false,
         "scoreResult": "pending",
@@ -99,10 +99,10 @@
       }
     ],
     "activeMiniGame": null,
-    "updatedAt": 1792645182651,
+    "updatedAt": 1794217918334,
     "usedItemIds": [
-      "auto_audio_2",
-      "auto_audio_3"
+      "item_number_1",
+      "item_logo_1"
     ],
     "autoSelectionEnabled": true
   },
@@ -114,7 +114,7 @@
       "prompt": "Identify the club that wore this famous white and metallic gold home strip!",
       "answer": "Real Madrid CF (2011/12 Home Kit)",
       "mediaUrl": "/samples/sample_jersey_kit.jpg",
-      "createdAt": "2026-10-21T12:34:37.355Z"
+      "createdAt": "2026-10-11T05:26:40.748Z"
     },
     {
       "id": "item_jersey_2",
@@ -123,7 +123,7 @@
       "prompt": "Which legendary club and playmaker number does this championship kit represent?",
       "answer": "Real Madrid #10 (Luka Modrić / Mesut Özil Era)",
       "mediaUrl": "/samples/sample_jersey_kit.jpg",
-      "createdAt": "2026-10-21T12:34:37.355Z"
+      "createdAt": "2026-10-11T05:26:40.748Z"
     },
     {
       "id": "item_photo_1",
@@ -132,7 +132,7 @@
       "prompt": "Name the world-class #10 superstar striking this volley under the stadium lights!",
       "answer": "Zinedine Zidane (Champions League Final Volley)",
       "mediaUrl": "/samples/sample_player_action.jpg",
-      "createdAt": "2026-10-21T12:34:37.355Z"
+      "createdAt": "2026-10-11T05:26:40.748Z"
     },
     {
       "id": "item_photo_2",
@@ -141,7 +141,7 @@
       "prompt": "Which French #10 scored a hat-trick in the 2022 World Cup Final?",
       "answer": "Kylian Mbappé",
       "mediaUrl": "/samples/sample_player_action.jpg",
-      "createdAt": "2026-10-21T12:34:37.355Z"
+      "createdAt": "2026-10-11T05:26:40.748Z"
     },
     {
       "id": "item_stadium_1",
@@ -150,7 +150,7 @@
       "prompt": "Name this legendary four-tier European stadium illuminated on Champions League night!",
       "answer": "Estadio Santiago Bernabéu (Madrid)",
       "mediaUrl": "/samples/sample_stadium_night.jpg",
-      "createdAt": "2026-10-21T12:34:37.355Z"
+      "createdAt": "2026-10-11T05:26:40.748Z"
     },
     {
       "id": "item_stadium_2",
@@ -159,7 +159,7 @@
       "prompt": "Which famous Italian stadium is shared by AC Milan and Inter Milan?",
       "answer": "San Siro (Stadio Giuseppe Meazza)",
       "mediaUrl": "/samples/sample_stadium_night.jpg",
-      "createdAt": "2026-10-21T12:34:37.355Z"
+      "createdAt": "2026-10-11T05:26:40.748Z"
     },
     {
       "id": "item_logo_1",
@@ -168,7 +168,7 @@
       "prompt": "Identify the football club represented by this crowned royal shield crest!",
       "answer": "Real Madrid CF",
       "mediaUrl": "/samples/sample_club_crest.jpg",
-      "createdAt": "2026-10-21T12:34:37.355Z"
+      "createdAt": "2026-10-11T05:26:40.748Z"
     },
     {
       "id": "item_logo_2",
@@ -177,7 +177,7 @@
       "prompt": "Which historic European giant features vertical red stripes and a golden ball on its crest?",
       "answer": "FC Barcelona / Royal Spanish Crest",
       "mediaUrl": "/samples/sample_club_crest.jpg",
-      "createdAt": "2026-10-21T12:34:37.355Z"
+      "createdAt": "2026-10-11T05:26:40.748Z"
     },
     {
       "id": "item_quiz_1",
@@ -185,7 +185,7 @@
       "title": "First FIFA World Cup Winner (1930)",
       "prompt": "Which country hosted and won the first-ever FIFA World Cup in 1930?",
       "answer": "Uruguay",
-      "createdAt": "2026-10-21T12:34:37.355Z"
+      "createdAt": "2026-10-11T05:26:40.748Z"
     },
     {
       "id": "item_quiz_2",
@@ -193,7 +193,7 @@
       "title": "Goalkeeper Ballon d’Or Winner",
       "prompt": "Who remains the only goalkeeper in football history to win the Ballon d’Or?",
       "answer": "Lev Yashin (1963)",
-      "createdAt": "2026-10-21T12:34:37.355Z"
+      "createdAt": "2026-10-11T05:26:40.748Z"
     },
     {
       "id": "item_quiz_3",
@@ -201,7 +201,7 @@
       "title": "Invincibles Premier League Season",
       "prompt": "Which club went unbeaten across all 38 matches of the 2003–04 English Premier League season?",
       "answer": "Arsenal FC (The Invincibles)",
-      "createdAt": "2026-10-21T12:34:37.355Z"
+      "createdAt": "2026-10-11T05:26:40.748Z"
     },
     {
       "id": "item_number_1",
@@ -209,7 +209,7 @@
       "title": "Messi’s 2012 Calendar Year Goals",
       "prompt": "How many official goals did Lionel Messi score in the 2012 calendar year for club and country?",
       "answer": "91 Goals",
-      "createdAt": "2026-10-21T12:34:37.355Z"
+      "createdAt": "2026-10-11T05:26:40.748Z"
     },
     {
       "id": "item_number_2",
@@ -217,7 +217,7 @@
       "title": "Fastest World Cup Goal (Seconds)",
       "prompt": "In how many seconds did Hakan Şükür score the fastest goal in FIFA World Cup history in 2002?",
       "answer": "11 Seconds (10.8s)",
-      "createdAt": "2026-10-21T12:34:37.355Z"
+      "createdAt": "2026-10-11T05:26:40.748Z"
     },
     {
       "id": "item_number_3",
@@ -225,7 +225,7 @@
       "title": "Real Madrid European Cup Titles",
       "prompt": "How many UEFA Champions League / European Cup trophies had Real Madrid won after the 2024 Final at Wembley?",
       "answer": "15 Titles",
-      "createdAt": "2026-10-21T12:34:37.355Z"
+      "createdAt": "2026-10-11T05:26:40.748Z"
     },
     {
       "id": "item_audio_1",
@@ -234,7 +234,7 @@
       "prompt": "Listen closely to this stadium fanfare — which elite European club tournament uses this anthem before kickoff?",
       "answer": "UEFA Champions League",
       "mediaUrl": "/samples/stadium_anthem.wav",
-      "createdAt": "2026-10-21T12:34:37.355Z"
+      "createdAt": "2026-10-11T05:26:40.748Z"
     },
     {
       "id": "item_audio_2",
@@ -243,7 +243,7 @@
       "prompt": "This triple referee whistle sealed the 2022 FIFA World Cup Final in Lusail — which nation won the penalty shootout?",
       "answer": "Argentina (defeated France 4–2 on penalties)",
       "mediaUrl": "/samples/goal_whistle.wav",
-      "createdAt": "2026-10-21T12:34:37.355Z"
+      "createdAt": "2026-10-11T05:26:40.748Z"
     },
     {
       "id": "item_audio_3",
@@ -252,7 +252,7 @@
       "prompt": "This stadium victory fanfare plays when the trophy is lifted in South America’s premier club tournament — name the cup!",
       "answer": "CONMEBOL Copa Libertadores",
       "mediaUrl": "/samples/ucl_fanfare.wav",
-      "createdAt": "2026-10-21T12:34:37.355Z"
+      "createdAt": "2026-10-11T05:26:40.748Z"
     }
   ]
 }

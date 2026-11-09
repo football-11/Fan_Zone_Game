@@ -12,8 +12,6 @@ import {
   Square,
   Sparkles,
   RefreshCw,
-  Tv,
-  ExternalLink,
 } from 'lucide-react';
 import { GameSyncProvider, useGameSync } from '../context/GameSyncContext';
 import { OwnerAuthGate } from '../components/OwnerAuthGate';
@@ -22,30 +20,20 @@ import {
   CategoryBadgeArtwork,
   ClubCrestArtwork,
   EmojiBadgeArtwork,
-  PlayerPortraitArtwork,
+  NationFlagArtwork,
 } from '../components/BroadcastArtwork';
 import { ContentItem } from '../types/game';
-import {
-  BzzoiroSearchResultItem,
-  resolveBzzoiroPlayerImageUrl,
-  searchBzzoiroSports,
-} from '../data/bzzoiroSports';
 
 const HostConsoleBody: React.FC = () => {
-  const { state, contentItems, logoutOwner, sendHostAction, forceSync } = useGameSync();
+  const { state, contentItems, logoutOwner, sendHostAction } = useGameSync();
 
   const [confirmNewGame, setConfirmNewGame] = useState(false);
-  const [syncingStudio, setSyncingStudio] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState<string>('');
   const [inlineTitle, setInlineTitle] = useState<string>('');
   const [inlinePrompt, setInlinePrompt] = useState<string>('');
   const [inlineAnswer, setInlineAnswer] = useState<string>('');
-  const [inlineOptions, setInlineOptions] = useState<string[]>(['', '', '', '']);
   const [inlineBlurAmount, setInlineBlurAmount] = useState<number>(28);
   const [spokenPlayerName, setSpokenPlayerName] = useState<string>('');
-  const [selectedPlayerImageUrl, setSelectedPlayerImageUrl] = useState<string | null>(null);
-  const [bzzoiroPlayerResults, setBzzoiroPlayerResults] = useState<BzzoiroSearchResultItem[]>([]);
-  const [searchingBzzoiro, setSearchingBzzoiro] = useState<boolean>(false);
 
   const mg = state?.activeMiniGame || null;
   const selectedCard =
@@ -63,155 +51,33 @@ const HostConsoleBody: React.FC = () => {
       ? contentItems.filter((item) => item.category === activeCategory)
       : [];
 
-  // Strictly filter out questions and images already picked in this session
-  const unusedCategoryItems = categoryItems.filter(
-    (item) => !state?.usedItemIds?.includes(item.id)
-  );
-  const pickedCategoryItems = categoryItems.filter(
-    (item) => state?.usedItemIds?.includes(item.id)
-  );
-
-  const ttt = mg?.ticTacToe;
-  const activeCellIndex = ttt?.selectedCellIndex ?? 0;
-  const activeCell = ttt?.cells[activeCellIndex];
-  const activeCellClub = ttt && activeCell ? ttt.clubs[activeCell.col] : null;
-  const activeCellNation = ttt && activeCell ? ttt.nations[activeCell.row] : null;
-
-  // Track all footballers already placed on the 3x3 board so none can be picked twice
-  const usedPlayerNamesOnBoard = new Set<string>(
-    (ttt?.cells || [])
-      .map((c) => c.playerName?.trim().toLowerCase())
-      .filter((name): name is string => Boolean(name))
-  );
-
-  const rawActiveCellHints = (ttt?.hintsByCell && ttt.hintsByCell[activeCellIndex]) || [];
-  // Exclude players already used in other cells so no player is picked twice
-  const activeCellHints = rawActiveCellHints.filter(
-    (name) => !usedPlayerNamesOnBoard.has(name.trim().toLowerCase())
-  );
-  const alreadyUsedHints = rawActiveCellHints.filter((name) =>
-    usedPlayerNamesOnBoard.has(name.trim().toLowerCase())
-  );
-
-  const isPlayerAlreadyUsedOnBoard =
-    spokenPlayerName.trim().length > 0 &&
-    usedPlayerNamesOnBoard.has(spokenPlayerName.trim().toLowerCase()) &&
-    activeCell?.playerName?.trim().toLowerCase() !== spokenPlayerName.trim().toLowerCase();
-
   // Sync inline editor fields when active mini-game snapshot changes
   useEffect(() => {
     if (mg && mg.snapshot) {
-      setSelectedItemId(mg.snapshot.itemId || 'auto');
+      setSelectedItemId(mg.snapshot.itemId || '');
       setInlineTitle(mg.snapshot.title || '');
       setInlinePrompt(mg.snapshot.prompt || '');
       setInlineAnswer(mg.snapshot.answer || '');
-      if (Array.isArray(mg.snapshot.options) && mg.snapshot.options.length > 0) {
-        const padded = [...mg.snapshot.options, '', '', ''].slice(0, 4);
-        setInlineOptions(padded);
-      } else {
-        setInlineOptions(['', '', '', '']);
-      }
       setInlineBlurAmount(
         typeof mg.snapshot.blurAmount === 'number' ? mg.snapshot.blurAmount : 28
       );
-    } else if (unusedCategoryItems.length > 0) {
-      // Pick first UNUSED item so an already picked question or image is NEVER pre-selected
-      const first = unusedCategoryItems[0];
+    } else if (categoryItems.length > 0) {
+      const first = categoryItems[0];
       setSelectedItemId(first.id);
       setInlineTitle(first.title);
       setInlinePrompt(first.prompt);
       setInlineAnswer(first.answer);
-      if (Array.isArray(first.options) && first.options.length > 0) {
-        const padded = [...first.options, '', '', ''].slice(0, 4);
-        setInlineOptions(padded);
-      } else {
-        setInlineOptions(['', '', '', '']);
-      }
       setInlineBlurAmount(typeof first.blurAmount === 'number' ? first.blurAmount : 28);
-    } else {
-      setSelectedItemId('auto');
-      setInlineOptions(['', '', '', '']);
     }
-  }, [mg?.cardNumber, mg?.snapshot?.itemId, activeCategory, contentItems.length, state?.usedItemIds?.length]);
-
-  // Automatic question & photo selection action
-  const handleAutoSelectQuestionAndPhoto = () => {
-    sendHostAction('minigame:autoSelect');
-  };
-
-  // Auto-select valid footballer & photo when active Tic-Tac-Toe cell changes
-  useEffect(() => {
-    if (mg?.category === 'tictactoe' && activeCell && !activeCell.owner && !ttt?.winner) {
-      if (activeCellHints && activeCellHints.length > 0) {
-        if (!spokenPlayerName || !activeCellHints.includes(spokenPlayerName)) {
-          const autoPlayer = activeCellHints[0];
-          setSpokenPlayerName(autoPlayer);
-          setSelectedPlayerImageUrl(resolveBzzoiroPlayerImageUrl(autoPlayer));
-        }
-      } else {
-        setSpokenPlayerName('');
-        setSelectedPlayerImageUrl(null);
-      }
-    }
-  }, [activeCellIndex, mg?.category, activeCell?.owner, activeCellHints.length, ttt?.winner]);
-
-  // Cycle / auto-pick next valid footballer for the active Tic-Tac-Toe square
-  const handleAutoPickNextTicTacToePlayer = () => {
-    if (!activeCellHints || activeCellHints.length === 0) return;
-    const currentIndex = activeCellHints.indexOf(spokenPlayerName);
-    const nextIndex = (currentIndex + 1) % activeCellHints.length;
-    const nextPlayer = activeCellHints[nextIndex];
-    setSpokenPlayerName(nextPlayer);
-    setSelectedPlayerImageUrl(resolveBzzoiroPlayerImageUrl(nextPlayer));
-  };
-
-  // Live Bzzoiro Sports API player search when Host types a footballer name in Tic-Tac-Toe
-  useEffect(() => {
-    const q = spokenPlayerName.trim();
-    if (mg?.category !== 'tictactoe' || q.length < 2) {
-      setBzzoiroPlayerResults([]);
-      setSearchingBzzoiro(false);
-      return;
-    }
-
-    let cancelled = false;
-    setSearchingBzzoiro(true);
-    const timer = setTimeout(async () => {
-      const results = await searchBzzoiroSports(q, 'player');
-      if (!cancelled) {
-        setBzzoiroPlayerResults(results.slice(0, 6));
-        setSearchingBzzoiro(false);
-        // Auto-attach exact match image if not manually chosen yet
-        const exact = results.find((r) => r.name.toLowerCase() === q.toLowerCase());
-        if (exact && !selectedPlayerImageUrl) {
-          setSelectedPlayerImageUrl(exact.imageUrl);
-        }
-      }
-    }, 220);
-
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [spokenPlayerName, mg?.category]);
+  }, [mg?.cardNumber, mg?.snapshot?.itemId, activeCategory, contentItems.length]);
 
   const handleSelectContentDropdown = (itemId: string) => {
     setSelectedItemId(itemId);
-    if (itemId === 'auto') {
-      handleAutoSelectQuestionAndPhoto();
-      return;
-    }
     const found = categoryItems.find((i) => i.id === itemId);
     if (found) {
       setInlineTitle(found.title);
       setInlinePrompt(found.prompt);
       setInlineAnswer(found.answer);
-      if (Array.isArray(found.options) && found.options.length > 0) {
-        const padded = [...found.options, '', '', ''].slice(0, 4);
-        setInlineOptions(padded);
-      } else {
-        setInlineOptions(['', '', '', '']);
-      }
       const nextBlur = typeof found.blurAmount === 'number' ? found.blurAmount : 28;
       setInlineBlurAmount(nextBlur);
       if (mg && isImageGuessCategory) {
@@ -222,14 +88,10 @@ const HostConsoleBody: React.FC = () => {
 
   const handleApplySelectedItem = () => {
     sendHostAction('minigame:useItem', {
-      itemId: selectedItemId === 'auto' ? undefined : selectedItemId,
+      itemId: selectedItemId,
       title: inlineTitle,
       prompt: inlinePrompt,
       answer: inlineAnswer,
-      options:
-        activeCategory === 'number'
-          ? inlineOptions.map((o) => o.trim()).filter(Boolean)
-          : undefined,
       blurAmount: isImageGuessCategory ? inlineBlurAmount : undefined,
     });
   };
@@ -241,6 +103,13 @@ const HostConsoleBody: React.FC = () => {
       </div>
     );
   }
+
+  const ttt = mg?.ticTacToe;
+  const activeCellIndex = ttt?.selectedCellIndex ?? 0;
+  const activeCell = ttt?.cells[activeCellIndex];
+  const activeCellClub = ttt && activeCell ? ttt.clubs[activeCell.col] : null;
+  const activeCellNation = ttt && activeCell ? ttt.nations[activeCell.row] : null;
+  const activeCellHints = (ttt?.hintsByCell && ttt.hintsByCell[activeCellIndex]) || [];
 
   return (
     <div className="min-h-screen bg-[#030914] text-slate-100 flex flex-col font-['Plus_Jakarta_Sans']">
@@ -266,45 +135,14 @@ const HostConsoleBody: React.FC = () => {
           >
             Content Manager
           </Link>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={async () => {
-                setSyncingStudio(true);
-                try {
-                  if (state) {
-                    await sendHostAction('session:sync', { clientState: state, force: true });
-                  }
-                  await forceSync();
-                } finally {
-                  setTimeout(() => setSyncingStudio(false), 600);
-                }
-              }}
-              disabled={syncingStudio}
-              className="px-3 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-400/40 hover:bg-emerald-500/25 text-emerald-300 hover:text-white transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 font-bold text-xs cursor-pointer active:scale-95"
-              title="Force push state and broadcast sync to Studio Display"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${syncingStudio ? 'animate-spin text-emerald-300' : ''}`} />
-              <span>{syncingStudio ? 'Broadcasting...' : 'Sync Studio Feed'}</span>
-            </button>
-            <Link
-              to="/studio"
-              className="px-3 py-1.5 rounded-lg bg-sky-500/15 border border-sky-400/50 hover:bg-sky-500/25 text-sky-300 hover:text-white transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 font-bold text-xs"
-              title="Open full 16:9 Studio Display"
-            >
-              <Tv className="w-3.5 h-3.5" />
-              <span>Studio Display</span>
-            </Link>
-            <a
-              href="/studio"
-              target="_blank"
-              rel="noreferrer"
-              className="p-1.5 rounded-lg bg-slate-900 border border-slate-700 hover:border-slate-500 text-slate-400 hover:text-white transition-colors shrink-0"
-              title="Open Studio in new browser tab / window"
-            >
-              <ExternalLink className="w-3.5 h-3.5" />
-            </a>
-          </div>
+          <Link
+            to="/studio"
+            target="_blank"
+            rel="noreferrer"
+            className="hover:text-sky-400 transition-colors whitespace-nowrap shrink-0"
+          >
+            Studio Display
+          </Link>
         </nav>
 
         <div className="flex items-center gap-3 shrink-0">
@@ -585,20 +423,6 @@ const HostConsoleBody: React.FC = () => {
               )}
             </div>
 
-            {/* Automatic Question & Photo Selection Status */}
-            <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-[#030914] border border-amber-500/30 text-xs">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="font-semibold text-slate-200">
-                  Automatic Selection:
-                </span>
-                <span className="text-amber-400 font-extrabold tracking-wide uppercase">ACTIVE</span>
-              </div>
-              <span className="text-[11px] text-slate-400 hidden sm:inline">
-                Auto-picks questions & photos for every mini-game
-              </span>
-            </div>
-
             {/* Two Separate Primary Actions: Reveal Selected Card vs Open Mini Game */}
             <div className="grid grid-cols-2 gap-3">
               <button
@@ -622,13 +446,13 @@ const HostConsoleBody: React.FC = () => {
                 onClick={() =>
                   sendHostAction('card:openMiniGame', {
                     cardNumber: state.selectedCardNumber,
-                    itemId: selectedItemId === 'auto' ? undefined : (selectedItemId || undefined),
+                    itemId: selectedItemId || undefined,
                   })
                 }
-                className="min-h-[48px] px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer whitespace-nowrap shadow-md shadow-amber-500/20 active:scale-95"
+                className="min-h-[48px] px-4 py-2.5 rounded-xl bg-[#F59E0B] hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer whitespace-nowrap"
               >
-                <Sparkles className="w-4 h-4 shrink-0 text-slate-950" />
-                <span>Open Mini Game (Auto-Select)</span>
+                <Sparkles className="w-4 h-4 shrink-0" />
+                <span>Open Mini Game</span>
               </button>
             </div>
 
@@ -767,33 +591,12 @@ const HostConsoleBody: React.FC = () => {
                       >
                         <div className="flex items-center justify-between text-[11px] font-['JetBrains_Mono'] font-bold">
                           <span className="text-amber-400">#{idx + 1}</span>
-                          <span className="flex items-center gap-1">
-                            <ClubCrestArtwork
-                              clubId={club.id}
-                              logoUrl={club.logoUrl}
-                              className="w-3.5 h-3.5"
-                            />
-                            {club.shortName} ×{' '}
-                            <ClubCrestArtwork
-                              clubId={nation.id}
-                              logoUrl={nation.logoUrl}
-                              className="w-3.5 h-3.5"
-                            />
-                            {nation.code}
+                          <span>
+                            {club.shortName} × {nation.code}
                           </span>
                         </div>
-                        <div className="flex items-center gap-1.5 mt-1 min-w-0">
-                          {cell.owner && (
-                            <PlayerPortraitArtwork
-                              playerName={cell.playerName}
-                              playerImageUrl={cell.playerImageUrl}
-                              teamColor={cell.owner}
-                              className="w-6 h-6"
-                            />
-                          )}
-                          <span className="text-xs font-bold font-['Outfit'] truncate">
-                            {cell.owner ? cell.playerName : 'Open Square'}
-                          </span>
+                        <div className="text-xs font-bold font-['Outfit'] truncate mt-1">
+                          {cell.owner ? cell.playerName : 'Open Square'}
                         </div>
                       </button>
                     );
@@ -806,22 +609,14 @@ const HostConsoleBody: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     {activeCellClub && (
-                      <ClubCrestArtwork
-                        clubId={activeCellClub.id}
-                        logoUrl={activeCellClub.logoUrl}
-                        className="w-6 h-6"
-                      />
+                      <ClubCrestArtwork clubId={activeCellClub.id} className="w-6 h-6" />
                     )}
                     <span className="text-xs font-bold text-white">
                       {activeCellClub?.name}
                     </span>
                     <span className="text-slate-500">×</span>
                     {activeCellNation && (
-                      <ClubCrestArtwork
-                        clubId={activeCellNation.id}
-                        logoUrl={activeCellNation.logoUrl}
-                        className="w-6 h-6"
-                      />
+                      <ClubCrestArtwork clubId={activeCellNation.id} className="w-6 h-6" />
                     )}
                     <span className="text-xs font-bold text-white">
                       {activeCellNation?.name}
@@ -832,176 +627,48 @@ const HostConsoleBody: React.FC = () => {
                   </span>
                 </div>
 
-                {/* Quick-Fill Reference Hints with Bzzoiro Player Portraits */}
+                {/* Quick-Fill Reference Hints */}
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[11px] text-slate-300 font-semibold flex items-center gap-1.5">
-                      <span>Valid Footballers (Square #{activeCellIndex + 1}):</span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold">
-                        Auto-Selected
-                      </span>
-                    </span>
-                    {activeCellHints.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={handleAutoPickNextTicTacToePlayer}
-                        className="px-2 py-0.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors"
-                        title="Cycle to next valid footballer and portrait for this square"
-                      >
-                        <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                        <span>🎲 Auto-Pick Next Footballer</span>
-                      </button>
-                    )}
-                  </div>
+                  <span className="block text-[11px] text-slate-400 mb-1.5">
+                    Quick-Fill Valid Footballers (Tap to populate):
+                  </span>
                   <div className="flex flex-wrap gap-1.5">
-                    {activeCellHints.map((hintName) => {
-                      const hintImg = resolveBzzoiroPlayerImageUrl(hintName);
-                      const isActiveHint = spokenPlayerName === hintName;
-                      return (
-                        <button
-                          key={hintName}
-                          type="button"
-                          onClick={() => {
-                            setSpokenPlayerName(hintName);
-                            setSelectedPlayerImageUrl(hintImg);
-                          }}
-                          className={`min-h-[36px] pl-1.5 pr-2.5 py-1 rounded-lg border text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
-                            isActiveHint
-                              ? 'bg-emerald-500/20 border-emerald-400 text-emerald-200'
-                              : 'bg-slate-900 hover:bg-slate-800 border-slate-700 text-emerald-300'
-                          }`}
-                        >
-                          <PlayerPortraitArtwork
-                            playerName={hintName}
-                            playerImageUrl={hintImg}
-                            className="w-5 h-5"
-                          />
-                          <span>{hintName}</span>
-                        </button>
-                      );
-                    })}
+                    {activeCellHints.map((hintName) => (
+                      <button
+                        key={hintName}
+                        type="button"
+                        onClick={() => setSpokenPlayerName(hintName)}
+                        className="min-h-[36px] px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs text-emerald-300 font-medium cursor-pointer"
+                      >
+                        {hintName}
+                      </button>
+                    ))}
                   </div>
-                  {alreadyUsedHints.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[10px] text-slate-500">
-                      <span>Already picked on board:</span>
-                      {alreadyUsedHints.map((hintName) => (
-                        <span
-                          key={hintName}
-                          className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-500 line-through"
-                        >
-                          {hintName}
-                        </span>
-                      ))}
-                    </div>
-                  )}
                 </div>
 
-                {/* Footballer Search & Input with Live Bzzoiro Sports API Results */}
-                <div className="space-y-2">
-                  <div className="relative flex items-center">
-                    {(selectedPlayerImageUrl || resolveBzzoiroPlayerImageUrl(spokenPlayerName)) && (
-                      <div className="absolute left-2.5 pointer-events-none">
-                        <PlayerPortraitArtwork
-                          playerName={spokenPlayerName}
-                          playerImageUrl={
-                            selectedPlayerImageUrl || resolveBzzoiroPlayerImageUrl(spokenPlayerName)
-                          }
-                          className="w-7 h-7"
-                        />
-                      </div>
-                    )}
-                    <input
-                      type="text"
-                      value={spokenPlayerName}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setSpokenPlayerName(val);
-                        setSelectedPlayerImageUrl(resolveBzzoiroPlayerImageUrl(val));
-                      }}
-                      placeholder="Type footballer name (searches sports.bzzoiro.com live)..."
-                      className={`w-full min-h-[44px] ${
-                        selectedPlayerImageUrl || resolveBzzoiroPlayerImageUrl(spokenPlayerName)
-                          ? 'pl-11'
-                          : 'pl-3.5'
-                      } pr-3.5 py-2 rounded-xl bg-[#081326] border ${
-                        isPlayerAlreadyUsedOnBoard
-                          ? 'border-red-500/80 focus:border-red-400'
-                          : 'border-slate-700 focus:border-amber-400'
-                      } text-sm text-white focus:outline-none`}
-                    />
-                  </div>
-
-                  {isPlayerAlreadyUsedOnBoard && (
-                    <div className="p-2 rounded-xl bg-red-950/80 border border-red-500/50 text-xs text-red-300 font-semibold flex items-center gap-1.5">
-                      <XCircle className="w-4 h-4 text-red-400 shrink-0" />
-                      <span>
-                        "{spokenPlayerName.trim()}" is already picked on the board! Once picked, a footballer cannot be picked again.
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Live Bzzoiro Player Search Matches */}
-                  {(searchingBzzoiro || bzzoiroPlayerResults.length > 0) && (
-                    <div className="p-2 rounded-xl bg-[#081326] border border-slate-700/80 space-y-1.5">
-                      <div className="flex items-center justify-between text-[10px] text-slate-400 px-1">
-                        <span>Bzzoiro Sports API Player Matches</span>
-                        {searchingBzzoiro && <span className="text-amber-400">Searching...</span>}
-                      </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {bzzoiroPlayerResults.map((player) => (
-                          <button
-                            key={`${player.id}-${player.name}`}
-                            type="button"
-                            onClick={() => {
-                              setSpokenPlayerName(player.name);
-                              setSelectedPlayerImageUrl(player.imageUrl);
-                            }}
-                            className={`min-h-[34px] pl-1.5 pr-2.5 py-1 rounded-lg border text-xs flex items-center gap-1.5 transition-colors cursor-pointer ${
-                              spokenPlayerName === player.name &&
-                              selectedPlayerImageUrl === player.imageUrl
-                                ? 'bg-amber-500/20 border-amber-400 text-amber-200'
-                                : 'bg-[#030914] hover:bg-slate-900 border-slate-700 text-slate-200'
-                            }`}
-                          >
-                            <PlayerPortraitArtwork
-                              playerName={player.name}
-                              playerImageUrl={player.imageUrl}
-                              className="w-5 h-5"
-                            />
-                            <span className="font-semibold">{player.name}</span>
-                            {player.extra && (
-                              <span className="text-[10px] text-slate-400">({player.extra})</span>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                <div>
+                  <input
+                    type="text"
+                    value={spokenPlayerName}
+                    onChange={(e) => setSpokenPlayerName(e.target.value)}
+                    placeholder="Type contestant's spoken footballer name..."
+                    className="w-full min-h-[44px] px-3.5 py-2 rounded-xl bg-[#081326] border border-slate-700 text-sm text-white focus:outline-none focus:border-amber-400"
+                  />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
-                    disabled={Boolean(
-                      activeCell?.owner || mg.ticTacToe.winner || isPlayerAlreadyUsedOnBoard
-                    )}
+                    disabled={Boolean(activeCell?.owner || mg.ticTacToe.winner)}
                     onClick={() => {
                       const nameToUse =
                         spokenPlayerName.trim() || activeCellHints[0] || 'Accepted Player';
-                      const imgToUse =
-                        selectedPlayerImageUrl ||
-                        resolveBzzoiroPlayerImageUrl(nameToUse) ||
-                        bzzoiroPlayerResults[0]?.imageUrl ||
-                        null;
                       sendHostAction('tictactoe:judge', {
                         cellIndex: activeCellIndex,
                         decision: 'accept',
                         playerName: nameToUse,
-                        playerImageUrl: imgToUse,
                       });
                       setSpokenPlayerName('');
-                      setSelectedPlayerImageUrl(null);
-                      setBzzoiroPlayerResults([]);
                     }}
                     className="min-h-[48px] px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap"
                   >
@@ -1021,8 +688,6 @@ const HostConsoleBody: React.FC = () => {
                         playerName: spokenPlayerName.trim(),
                       });
                       setSpokenPlayerName('');
-                      setSelectedPlayerImageUrl(null);
-                      setBzzoiroPlayerResults([]);
                     }}
                     className="min-h-[48px] px-4 py-2.5 rounded-xl bg-red-500 hover:bg-red-400 disabled:opacity-40 text-white font-bold text-xs flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap"
                   >
@@ -1049,99 +714,36 @@ const HostConsoleBody: React.FC = () => {
                 mg ? 'animate-minigame-open' : 'animate-board-return'
               }`}
             >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-sm font-bold font-['Outfit'] text-white">
-                    Mini-Game Content & Live Stage Controls
-                  </h2>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                    ⚡ Auto Selection
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-bold font-['Outfit'] text-white">
+                  Mini-Game Content & Live Stage Controls
+                </h2>
+                {mg && (
+                  <span className="font-['JetBrains_Mono'] font-bold text-sm text-amber-400 tabular-nums">
+                    Timer: 00:{String(mg.timerSeconds).padStart(2, '0')}
                   </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  {mg && (
-                    <button
-                      type="button"
-                      onClick={handleAutoSelectQuestionAndPhoto}
-                      className="min-h-[38px] px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-extrabold text-xs flex items-center gap-1.5 shadow-md shadow-amber-500/20 transition-all cursor-pointer whitespace-nowrap active:scale-95"
-                      title="Automatically select next question and photo from library and sports database"
-                    >
-                      <Sparkles className="w-4 h-4 text-slate-950 shrink-0" />
-                      <span>🎲 Auto-Select Question & Photo</span>
-                    </button>
-                  )}
-                  {mg && (
-                    <span className="font-['JetBrains_Mono'] font-bold text-sm text-amber-400 tabular-nums">
-                      Timer: 00:{String(mg.timerSeconds).padStart(2, '0')}
-                    </span>
-                  )}
-                </div>
+                )}
               </div>
 
               {/* Content Item Selector & Inline Editor */}
               {activeCategory !== 'tictactoe' && (
                 <div className="p-3 rounded-xl bg-[#030914] border border-slate-800 space-y-2.5">
                   <div>
-                    <div className="flex flex-wrap items-center justify-between gap-1.5 mb-1.5">
-                      <div className="flex items-center gap-2">
-                        <label className="text-xs font-semibold text-slate-300">
-                          {activeCategory?.toUpperCase()} Questions & Photos:
-                        </label>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-300">
-                          <span className="text-emerald-400 font-extrabold">{unusedCategoryItems.length}</span> available
-                          {pickedCategoryItems.length > 0 && (
-                            <span className="text-slate-400"> · <span className="text-amber-400 font-bold">{pickedCategoryItems.length}</span> removed</span>
-                          )}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        {pickedCategoryItems.length > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => sendHostAction('session:resetUsedItems')}
-                            className="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-[10px] font-bold text-slate-300 cursor-pointer transition-colors"
-                            title="Restore all removed questions and images back into the pool"
-                          >
-                            Reset Removed Pool
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={handleAutoSelectQuestionAndPhoto}
-                          className="px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors"
-                        >
-                          <Sparkles className="w-3.5 h-3.5" />
-                          <span>🎲 Auto-Pick Next Item</span>
-                        </button>
-                      </div>
-                    </div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Select Saved {activeCategory?.toUpperCase()} Item ({categoryItems.length}{' '}
+                      available):
+                    </label>
                     <select
                       value={selectedItemId}
                       onChange={(e) => handleSelectContentDropdown(e.target.value)}
                       className="w-full min-h-[44px] px-3 py-2 rounded-xl bg-[#081326] border border-slate-700 text-xs text-white focus:outline-none focus:border-amber-400"
                     >
-                      <option value="auto">
-                        ✨ [Auto-Selected] {inlineTitle ? `${inlineTitle} — [${inlineAnswer}]` : 'Automatic Question & Photo'}
-                      </option>
-                      {unusedCategoryItems.length > 0 && (
-                        <optgroup label={`Available Unpicked Items (${unusedCategoryItems.length})`}>
-                          {unusedCategoryItems.map((item) => (
-                            <option key={item.id} value={item.id}>
-                              {item.title} — [{item.answer}]
-                              {isImageGuessCategory ? ` (${item.blurAmount ?? 28}px blur)` : ''}
-                            </option>
-                          ))}
-                        </optgroup>
-                      )}
-                      {pickedCategoryItems.length > 0 && (
-                        <optgroup label={`Already Picked (Removed from Mini Games · ${pickedCategoryItems.length})`}>
-                          {pickedCategoryItems.map((item) => (
-                            <option key={item.id} value={item.id} disabled className="text-slate-500 bg-slate-900">
-                              🚫 [REMOVED] {item.title} — [{item.answer}]
-                            </option>
-                          ))}
-                        </optgroup>
-                      )}
+                      {categoryItems.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.title} — [{item.answer}]
+                          {isImageGuessCategory ? ` (${item.blurAmount ?? 28}px blur)` : ''}
+                        </option>
+                      ))}
                     </select>
                   </div>
 
@@ -1224,72 +826,6 @@ const HostConsoleBody: React.FC = () => {
                       className="w-full min-h-[44px] px-3 py-2 rounded-xl bg-[#081326] border border-emerald-500/50 text-xs text-emerald-300 font-semibold focus:outline-none focus:border-emerald-400"
                     />
                   </div>
-
-                  {activeCategory === 'number' && (
-                    <div className="p-3 rounded-xl bg-[#081326] border border-amber-500/40 space-y-2.5">
-                      <div className="flex flex-wrap items-center justify-between gap-1">
-                        <span className="text-xs font-bold text-amber-400">
-                          Multiple Choice Options (A, B, C, D)
-                        </span>
-                        <span className="text-[10px] text-slate-400">
-                          Tap option letter to designate as official answer
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {['A', 'B', 'C', 'D'].map((letter, optIdx) => {
-                          const optVal = inlineOptions[optIdx] || '';
-                          const isSelectedAnswer =
-                            optVal.trim().length > 0 &&
-                            (inlineAnswer.trim().toLowerCase() === optVal.trim().toLowerCase() ||
-                              inlineAnswer.trim().toLowerCase().includes(optVal.trim().toLowerCase()));
-
-                          return (
-                            <div
-                              key={letter}
-                              className={`p-2 rounded-xl border flex items-center gap-2 transition-all ${
-                                isSelectedAnswer
-                                  ? 'bg-emerald-950/70 border-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.3)]'
-                                  : 'bg-[#030914] border-slate-700/80 hover:border-slate-600'
-                              }`}
-                            >
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (optVal.trim()) {
-                                    setInlineAnswer(optVal.trim());
-                                  }
-                                }}
-                                title={`Click to set option ${letter} as official answer`}
-                                className={`shrink-0 w-7 h-7 rounded-lg font-['Outfit'] font-black text-xs flex items-center justify-center transition-all cursor-pointer ${
-                                  isSelectedAnswer
-                                    ? 'bg-emerald-400 text-slate-950 shadow'
-                                    : 'bg-amber-500/20 hover:bg-amber-500/35 border border-amber-400/40 text-amber-300'
-                                }`}
-                              >
-                                {letter}
-                              </button>
-                              <input
-                                type="text"
-                                value={optVal}
-                                placeholder={`Option ${letter}...`}
-                                onChange={(e) => {
-                                  const nextOpts = [...inlineOptions];
-                                  nextOpts[optIdx] = e.target.value;
-                                  setInlineOptions(nextOpts);
-                                }}
-                                className="flex-1 min-w-0 bg-transparent text-xs text-white focus:outline-none placeholder:text-slate-600"
-                              />
-                              {isSelectedAnswer && (
-                                <span className="shrink-0 text-[10px] font-bold text-emerald-400 uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/20">
-                                  ✓ Answer
-                                </span>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
 
                   <button
                     type="button"

@@ -28,7 +28,6 @@ export interface ContentItem {
   title: string;
   prompt: string;
   answer: string;
-  options?: string[]; // Multiple choice options (e.g. for Number minigame)
   mediaUrl?: string;
   blurAmount?: number;
   createdAt: string;
@@ -53,7 +52,6 @@ export interface ActiveRoundSnapshot {
   title: string;
   prompt: string;
   answer?: string; // Stripped for /studio until answerRevealed === true
-  options?: string[]; // Multiple choice options displayed on Studio
   mediaUrl?: string;
   blurAmount?: number;
 }
@@ -62,25 +60,20 @@ export interface TicTacToeClub {
   id: string;
   name: string;
   shortName: string;
-  bzzoiroTeamId?: number;
-  logoUrl?: string;
 }
 
 export interface TicTacToeNation {
   id: string;
   name: string;
   code: string;
-  bzzoiroTeamId?: number;
-  logoUrl?: string;
 }
 
 export interface TicTacToeCell {
   index: number; // 0..8 (Square 1..9)
-  row: number; // 0..2 (Row Club)
-  col: number; // 0..2 (Col Club)
+  row: number; // 0..2 (Nation)
+  col: number; // 0..2 (Club)
   owner: TeamId | null;
   playerName: string | null;
-  playerImageUrl?: string | null;
 }
 
 export interface TicTacToeState {
@@ -134,8 +127,6 @@ export interface GameSessionState {
   boardDeckId?: number;
   cards: BoardCard[];
   activeMiniGame: ActiveMiniGameState | null;
-  usedItemIds?: string[];
-  autoSelectionEnabled?: boolean;
   updatedAt: number;
 }
 
@@ -207,9 +198,9 @@ export const CONTENT_CATEGORIES: {
   },
   {
     id: 'number',
-    label: 'Number (Multiple Choice)',
+    label: 'Number',
     mediaType: 'none',
-    description: 'Multiple choice numeric football challenges with 4 options (A, B, C, D) — answer reveals when Host presses Reveal Answer.',
+    description: 'Numeric football stat challenges — answer reveals only when Host presses Reveal Answer.',
   },
   {
     id: 'audio',

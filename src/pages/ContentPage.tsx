@@ -32,7 +32,6 @@ const ContentManagerBody: React.FC = () => {
   const [prompt, setPrompt] = useState('');
   const [answer, setAnswer] = useState('');
   const [mediaUrl, setMediaUrl] = useState('');
-  const [options, setOptions] = useState<string[]>(['', '', '', '']);
   const [blurAmount, setBlurAmount] = useState<number>(28);
   const [previewBlurred, setPreviewBlurred] = useState<boolean>(true);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
@@ -44,7 +43,6 @@ const ContentManagerBody: React.FC = () => {
   const [editTitle, setEditTitle] = useState('');
   const [editPrompt, setEditPrompt] = useState('');
   const [editAnswer, setEditAnswer] = useState('');
-  const [editOptions, setEditOptions] = useState<string[]>(['', '', '', '']);
   const [editMediaUrl, setEditMediaUrl] = useState('');
   const [editBlurAmount, setEditBlurAmount] = useState<number>(28);
   const [editPreviewBlurred, setEditPreviewBlurred] = useState<boolean>(true);
@@ -138,17 +136,12 @@ const ContentManagerBody: React.FC = () => {
         title: title.trim() || prompt.trim() || `${currentTabConfig.label} Item`,
         prompt: prompt.trim() || title.trim() || `Identify this ${currentTabConfig.label} clue!`,
         answer: answer.trim(),
-        options:
-          activeTab === 'number'
-            ? options.map((o) => o.trim()).filter(Boolean)
-            : undefined,
         mediaUrl: mediaUrl.trim() || undefined,
         blurAmount: currentTabConfig.mediaType === 'image' ? blurAmount : undefined,
       });
       setTitle('');
       setPrompt('');
       setAnswer('');
-      setOptions(['', '', '', '']);
       setMediaUrl('');
       setBlurAmount(28);
       setPreviewBlurred(true);
@@ -162,11 +155,6 @@ const ContentManagerBody: React.FC = () => {
     setEditTitle(item.title);
     setEditPrompt(item.prompt);
     setEditAnswer(item.answer);
-    if (Array.isArray(item.options) && item.options.length > 0) {
-      setEditOptions([...item.options, '', '', ''].slice(0, 4));
-    } else {
-      setEditOptions(['', '', '', '']);
-    }
     setEditMediaUrl(item.mediaUrl || '');
     setEditBlurAmount(typeof item.blurAmount === 'number' ? item.blurAmount : 28);
     setEditPreviewBlurred(true);
@@ -178,10 +166,6 @@ const ContentManagerBody: React.FC = () => {
       title: editTitle.trim(),
       prompt: editPrompt.trim(),
       answer: editAnswer.trim(),
-      options:
-        activeTab === 'number'
-          ? editOptions.map((o) => o.trim()).filter(Boolean)
-          : undefined,
       mediaUrl: editMediaUrl.trim() || undefined,
       blurAmount: currentTabConfig.mediaType === 'image' ? editBlurAmount : undefined,
     });
@@ -498,70 +482,6 @@ const ContentManagerBody: React.FC = () => {
                 />
               </div>
 
-              {activeTab === 'number' && (
-                <div className="p-3.5 rounded-xl bg-[#030914] border border-amber-500/40 space-y-2.5">
-                  <div className="flex flex-wrap items-center justify-between gap-1">
-                    <label className="block text-xs font-bold text-amber-400">
-                      Multiple Choice Options (A, B, C, D) *
-                    </label>
-                    <span className="text-[11px] text-slate-400">
-                      Tap letter to set as official answer
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {['A', 'B', 'C', 'D'].map((letter, optIdx) => {
-                      const optVal = options[optIdx] || '';
-                      const isMatch =
-                        optVal.trim().length > 0 &&
-                        (answer.trim().toLowerCase() === optVal.trim().toLowerCase() ||
-                          answer.trim().toLowerCase().includes(optVal.trim().toLowerCase()));
-
-                      return (
-                        <div
-                          key={letter}
-                          className={`p-2 rounded-xl border flex items-center gap-2 transition-all ${
-                            isMatch
-                              ? 'bg-emerald-950/70 border-emerald-400'
-                              : 'bg-[#081326] border-slate-700/80'
-                          }`}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (optVal.trim()) setAnswer(optVal.trim());
-                            }}
-                            title={`Set option ${letter} as answer`}
-                            className={`shrink-0 w-7 h-7 rounded-lg font-['Outfit'] font-black text-xs flex items-center justify-center cursor-pointer transition-colors ${
-                              isMatch
-                                ? 'bg-emerald-400 text-slate-950 font-bold'
-                                : 'bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 border border-amber-400/40'
-                            }`}
-                          >
-                            {letter}
-                          </button>
-                          <input
-                            type="text"
-                            value={optVal}
-                            placeholder={`Option ${letter}...`}
-                            onChange={(e) => {
-                              const next = [...options];
-                              next[optIdx] = e.target.value;
-                              setOptions(next);
-                            }}
-                            className="flex-1 min-w-0 bg-transparent text-xs text-white focus:outline-none placeholder:text-slate-600"
-                          />
-                          {isMatch && (
-                            <span className="shrink-0 text-[10px] font-bold text-emerald-400 uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/20">
-                              ✓ Answer
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
               <button
                 type="submit"
                 disabled={saving}
@@ -633,70 +553,6 @@ const ContentManagerBody: React.FC = () => {
                             className="w-full min-h-[44px] px-3 py-2 rounded-lg bg-[#081326] border border-slate-700 text-xs text-white"
                           />
                         </div>
-
-                        {activeTab === 'number' && (
-                          <div className="p-3 rounded-xl bg-[#081326] border border-amber-500/40 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-bold text-amber-400">
-                                Multiple Choice Options (A, B, C, D)
-                              </span>
-                              <span className="text-[10px] text-slate-400">
-                                Tap letter to set as official answer
-                              </span>
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                              {['A', 'B', 'C', 'D'].map((letter, optIdx) => {
-                                const optVal = editOptions[optIdx] || '';
-                                const isMatch =
-                                  optVal.trim().length > 0 &&
-                                  (editAnswer.trim().toLowerCase() === optVal.trim().toLowerCase() ||
-                                    editAnswer.trim().toLowerCase().includes(optVal.trim().toLowerCase()));
-
-                                return (
-                                  <div
-                                    key={letter}
-                                    className={`p-1.5 rounded-lg border flex items-center gap-1.5 ${
-                                      isMatch
-                                        ? 'bg-emerald-950/70 border-emerald-400'
-                                        : 'bg-[#030914] border-slate-700'
-                                    }`}
-                                  >
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        if (optVal.trim()) setEditAnswer(optVal.trim());
-                                      }}
-                                      title={`Set option ${letter} as answer`}
-                                      className={`shrink-0 w-6 h-6 rounded font-['Outfit'] font-black text-xs flex items-center justify-center cursor-pointer ${
-                                        isMatch
-                                          ? 'bg-emerald-400 text-slate-950 font-bold'
-                                          : 'bg-amber-500/20 text-amber-300 border border-amber-400/40'
-                                      }`}
-                                    >
-                                      {letter}
-                                    </button>
-                                    <input
-                                      type="text"
-                                      value={optVal}
-                                      placeholder={`Option ${letter}...`}
-                                      onChange={(e) => {
-                                        const next = [...editOptions];
-                                        next[optIdx] = e.target.value;
-                                        setEditOptions(next);
-                                      }}
-                                      className="flex-1 min-w-0 bg-transparent text-xs text-white focus:outline-none"
-                                    />
-                                    {isMatch && (
-                                      <span className="shrink-0 text-[9px] font-bold text-emerald-400 uppercase px-1 py-0.5 rounded bg-emerald-500/20">
-                                        ✓
-                                      </span>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
 
                         {currentTabConfig.mediaType !== 'none' && (
                           <div className="space-y-3">
@@ -827,48 +683,6 @@ const ContentManagerBody: React.FC = () => {
                                 </span>
                               )}
                             </div>
-
-                            {/* Render 4 Options Chips for Number Category */}
-                            {item.category === 'number' &&
-                              Array.isArray(item.options) &&
-                              item.options.length > 0 && (
-                                <div className="mt-2 grid grid-cols-2 gap-1.5 max-w-lg">
-                                  {item.options.map((opt, optIdx) => {
-                                    const letter = String.fromCharCode(65 + optIdx);
-                                    const isMatch =
-                                      opt.trim().toLowerCase() === item.answer.trim().toLowerCase() ||
-                                      item.answer.trim().toLowerCase().includes(opt.trim().toLowerCase()) ||
-                                      opt.trim().toLowerCase().includes(item.answer.trim().toLowerCase());
-
-                                    return (
-                                      <div
-                                        key={optIdx}
-                                        className={`px-2 py-1 rounded-lg border text-xs flex items-center gap-1.5 ${
-                                          isMatch
-                                            ? 'bg-emerald-950/60 border-emerald-400/80 text-emerald-200'
-                                            : 'bg-[#081326] border-slate-800 text-slate-300'
-                                        }`}
-                                      >
-                                        <span
-                                          className={`w-4 h-4 rounded text-[10px] font-black flex items-center justify-center shrink-0 ${
-                                            isMatch
-                                              ? 'bg-emerald-400 text-slate-950'
-                                              : 'bg-amber-500/20 text-amber-300 border border-amber-400/40'
-                                          }`}
-                                        >
-                                          {letter}
-                                        </span>
-                                        <span className="truncate font-semibold">{opt}</span>
-                                        {isMatch && (
-                                          <span className="ml-auto text-[9px] font-bold text-emerald-400">
-                                            ✓
-                                          </span>
-                                        )}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              )}
 
                             {currentTabConfig.mediaType === 'image' && (
                               <div className="mt-2 flex flex-wrap items-center gap-2 bg-[#081326] border border-slate-800 rounded-lg px-2.5 py-1.5 max-w-md">

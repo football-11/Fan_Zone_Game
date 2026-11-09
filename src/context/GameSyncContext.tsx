@@ -17,11 +17,6 @@ import {
   signOutOwner,
   syncContentItemToFirestore,
 } from '../firebase';
-import {
-  BZZOIRO_CLUB_POOL,
-  resolveBzzoiroPlayerImageUrl,
-} from '../data/bzzoiroSports';
-import { getAutomaticContentItem } from '../data/automaticContentPool';
 
 interface OwnerAuthState {
   authenticated: boolean;
@@ -41,13 +36,11 @@ interface GameSyncContextValue {
   logoutOwner: () => void;
   sendHostAction: (action: string, payload?: Record<string, any>) => Promise<void>;
   refreshContentItems: () => Promise<void>;
-  forceSync: () => Promise<void>;
   createContentItem: (itemInput: {
     category: ContentCategory;
     title: string;
     prompt: string;
     answer: string;
-    options?: string[];
     mediaUrl?: string;
     blurAmount?: number;
   }) => Promise<void>;
@@ -57,7 +50,6 @@ interface GameSyncContextValue {
       title?: string;
       prompt?: string;
       answer?: string;
-      options?: string[];
       mediaUrl?: string;
       blurAmount?: number;
     }
@@ -71,7 +63,18 @@ const STATE_STORAGE_KEY = 'fanzone_live_state_v1';
 const CONTENT_STORAGE_KEY = 'fanzone_content_items_v1';
 const SYNC_CHANNEL_NAME = 'fanzone_live_sync_channel';
 
-const CLUB_POOL: TicTacToeClub[] = BZZOIRO_CLUB_POOL;
+const CLUB_POOL: TicTacToeClub[] = [
+  { id: 'real_madrid', name: 'Real Madrid', shortName: 'RMA' },
+  { id: 'barcelona', name: 'FC Barcelona', shortName: 'BAR' },
+  { id: 'man_city', name: 'Manchester City', shortName: 'MCI' },
+  { id: 'psg', name: 'Paris Saint-Germain', shortName: 'PSG' },
+  { id: 'chelsea', name: 'Chelsea FC', shortName: 'CHE' },
+  { id: 'ac_milan', name: 'AC Milan', shortName: 'MIL' },
+  { id: 'man_united', name: 'Manchester United', shortName: 'MUN' },
+  { id: 'juventus', name: 'Juventus FC', shortName: 'JUV' },
+  { id: 'bayern', name: 'Bayern Munich', shortName: 'BAY' },
+  { id: 'inter_milan', name: 'Inter Milan', shortName: 'INT' },
+];
 
 const CLUB_IDS = new Set(CLUB_POOL.map((c) => c.id));
 
@@ -178,8 +181,6 @@ function createFallbackTicTacToe(startingTeam: TeamId = 'red'): TicTacToeState {
     id: c.id,
     name: c.name,
     code: c.shortName,
-    bzzoiroTeamId: c.bzzoiroTeamId,
-    logoUrl: c.logoUrl,
   }));
   const cells = [];
   const hintsByCell: Record<number, string[]> = {};
@@ -270,7 +271,6 @@ const DEFAULT_FALLBACK_ITEMS: ContentItem[] = [
     title: 'Messi’s 2012 Calendar Year Goals',
     prompt: 'How many official goals did Lionel Messi score in the 2012 calendar year for club and country?',
     answer: '91 Goals',
-    options: ['86 Goals', '91 Goals', '73 Goals', '95 Goals'],
     createdAt: new Date().toISOString(),
   },
   {
@@ -296,7 +296,7 @@ function createDefaultSessionState(): GameSessionState {
     boardDeckId: 1,
     cards: createFallbackCards(),
     activeMiniGame: null,
-    updatedAt: 0,
+    updatedAt: Date.now(),
   };
 }
 
@@ -365,18 +365,6 @@ export const GameSyncProvider: React.FC<{
   const wsRef = useRef<WebSocket | null>(null);
   const channelRef = useRef<BroadcastChannel | null>(null);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
-  const stateRef = useRef<GameSessionState | null>(state);
-  const contentItemsRef = useRef<ContentItem[]>(contentItems);
-  const inFlightPollRef = useRef(false);
-  const lastLocalSyncAtRef = useRef(0);
-
-  useEffect(() => {
-    stateRef.current = state;
-  }, [state]);
-
-  useEffect(() => {
-    contentItemsRef.current = contentItems;
-  }, [contentItems]);
 
   const persistOwnerAuth = useCallback((nextAuth: OwnerAuthState) => {
     setOwnerAuth(nextAuth);
@@ -430,7 +418,7 @@ export const GameSyncProvider: React.FC<{
     []
   );
 
-  // Cross-Tab BroadcastChannel + Storage Event Listener for instant 0ms /host <-> /studio sync on Vercel
+  // Cross-Tab BroadcastChannel + Storage Event Listener for instant /host <-> /studio sync on Vercel
   useEffect(() => {
     if (typeof BroadcastChannel !== 'undefined') {
       const ch = new BroadcastChannel(SYNC_CHANNEL_NAME);
@@ -439,38 +427,13 @@ export const GameSyncProvider: React.FC<{
         const msg = event.data;
         if (!msg) return;
         if (msg.type === 'local:sync') {
-          lastLocalSyncAtRef.current = Date.now();
-          if (msg.state) {
-            stateRef.current = msg.state;
-            setState(msg.state);
-          }
-          if (Array.isArray(msg.contentItems)) {
-            contentItemsRef.current = msg.contentItems;
-            setContentItems(msg.contentItems);
-          }
+          if (msg.state) setState(msg.state);
+          if (Array.isArray(msg.contentItems)) setContentItems(msg.contentItems);
           if (msg.audioCmd) {
             triggerAudioPlayback(msg.audioCmd.action, msg.audioCmd.mediaUrl);
           }
-        } else if (msg.type === 'studio:request_sync' && role === 'host' && stateRef.current) {
-          try {
-            ch.postMessage({
-              type: 'local:sync',
-              state: stateRef.current,
-              contentItems: contentItemsRef.current,
-            });
-          } catch {
-            // ignore
-          }
         }
       };
-
-      if (role === 'studio') {
-        try {
-          ch.postMessage({ type: 'studio:request_sync' });
-        } catch {
-          // ignore
-        }
-      }
     }
 
     const handleStorage = (e: StorageEvent) => {
@@ -484,8 +447,6 @@ export const GameSyncProvider: React.FC<{
             ) {
               return;
             }
-            lastLocalSyncAtRef.current = Date.now();
-            stateRef.current = parsed;
             setState(parsed);
           }
         } catch {
@@ -494,10 +455,7 @@ export const GameSyncProvider: React.FC<{
       } else if (e.key === CONTENT_STORAGE_KEY && e.newValue) {
         try {
           const parsed = JSON.parse(e.newValue);
-          if (Array.isArray(parsed)) {
-            contentItemsRef.current = parsed;
-            setContentItems(parsed);
-          }
+          if (Array.isArray(parsed)) setContentItems(parsed);
         } catch {
           // ignore
         }
@@ -512,93 +470,58 @@ export const GameSyncProvider: React.FC<{
         channelRef.current = null;
       }
     };
-  }, [role, triggerAudioPlayback]);
+  }, [triggerAudioPlayback]);
 
-  const fetchInitialState = useCallback(
-    async (ignoreSince: boolean = false) => {
-      if (inFlightPollRef.current) return;
-      inFlightPollRef.current = true;
-      const currentUpdatedAt = ignoreSince ? 0 : stateRef.current?.updatedAt || 0;
-
-      try {
-        if (role === 'host' && ownerAuth.authenticated && ownerAuth.token) {
-          const res = await fetch(`/api/host/state?since=${currentUpdatedAt}`, {
-            headers: { Authorization: `Bearer ${ownerAuth.token}` },
-            cache: 'no-store',
-          });
-          const ct = res.headers.get('content-type') || '';
-          if (res.ok && ct.includes('application/json')) {
-            const data = await res.json();
-            const serverUpdatedAt = Number(data.updatedAt || data.state?.updatedAt || 0);
-
-            // If a serverless instance cold-restarted and lost state, re-hydrate it from Host
-            if (currentUpdatedAt > 0 && serverUpdatedAt < currentUpdatedAt && stateRef.current) {
-              fetch('/api/host/action', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  Authorization: `Bearer ${ownerAuth.token}`,
-                },
-                body: JSON.stringify({
-                  action: 'session:sync',
-                  clientState: stateRef.current,
-                  contentItems: contentItemsRef.current,
-                }),
-              }).catch(() => {});
-              return;
-            }
-
-            if (!data.unchanged && data.state && (serverUpdatedAt > currentUpdatedAt || ignoreSince)) {
-              stateRef.current = data.state;
-              setState(data.state);
-              if (Array.isArray(data.contentItems) && data.contentItems.length > 0) {
-                contentItemsRef.current = data.contentItems;
-                setContentItems(data.contentItems);
-              }
-            }
-            return;
-          }
-        }
-
-        const res = await fetch(`/api/studio/state?since=${currentUpdatedAt}`, {
-          cache: 'no-store',
+  const fetchInitialState = useCallback(async () => {
+    try {
+      if (role === 'host' && ownerAuth.authenticated && ownerAuth.token) {
+        const res = await fetch('/api/host/state', {
+          headers: { Authorization: `Bearer ${ownerAuth.token}` },
         });
         const ct = res.headers.get('content-type') || '';
         if (res.ok && ct.includes('application/json')) {
           const data = await res.json();
-          if (data.unchanged) return;
-          if (data.state && Array.isArray(data.state.cards)) {
-            // For Studio screen: Authoritative server state is unconditionally applied
-            stateRef.current = data.state;
-            setState(data.state);
+          if (data.state) {
+            setState((prev) => {
+              if (prev && prev.updatedAt > (data.state.updatedAt || 0)) return prev;
+              return data.state;
+            });
           }
+          if (Array.isArray(data.contentItems) && data.contentItems.length > 0) {
+            setContentItems(data.contentItems);
+          }
+          return;
         }
-      } catch {
-        // Keep local state if API is static or offline
-      } finally {
-        inFlightPollRef.current = false;
       }
-    },
-    [role, ownerAuth.authenticated, ownerAuth.token]
-  );
-
-  const forceSync = useCallback(async () => {
-    await fetchInitialState(true);
-  }, [fetchInitialState]);
+      const res = await fetch('/api/studio/state');
+      const ct = res.headers.get('content-type') || '';
+      if (res.ok && ct.includes('application/json')) {
+        const data = await res.json();
+        if (data.state) {
+          setState((prev) => {
+            if (prev && prev.updatedAt > (data.state.updatedAt || 0)) return prev;
+            return data.state;
+          });
+          return;
+        }
+      }
+    } catch {
+      // Keep local state if API is static
+    }
+  }, [role, ownerAuth.authenticated, ownerAuth.token]);
 
   useEffect(() => {
     fetchInitialState();
   }, [fetchInitialState]);
 
-  // Reliable sync polling: fast (300ms) when disconnected, heartbeat (1200ms) when connected.
-  // Never pauses when document is in background or iframe unfocused.
+  // Serverless / Vercel Fallback Polling when WebSocket is disconnected
   useEffect(() => {
-    const intervalMs = role === 'studio' ? (connected ? 1200 : 300) : (connected ? 3000 : 1500);
+    if (connected) return;
     const pollId = setInterval(() => {
       fetchInitialState();
-    }, intervalMs);
+    }, 1500);
     return () => clearInterval(pollId);
-  }, [connected, role, fetchInitialState]);
+  }, [connected, fetchInitialState]);
 
   // Local client timer tick when WebSocket is disconnected
   useEffect(() => {
@@ -673,7 +596,6 @@ export const GameSyncProvider: React.FC<{
         try {
           const msg = JSON.parse(event.data);
           if (msg.type === 'state:update' && msg.state) {
-            stateRef.current = msg.state;
             setState(msg.state);
             if (role === 'host') {
               try {
@@ -848,15 +770,17 @@ export const GameSyncProvider: React.FC<{
     }
   };
 
-  // Complete synchronous local game engine so all 16 host actions execute & broadcast in 0ms
+  // Complete local game engine so all 16 host actions work identically on Vercel & local
   const applyLocalAction = useCallback(
-    (action: string, payload: Record<string, any> = {}): GameSessionState => {
+    (action: string, payload: Record<string, any> = {}) => {
       let audioCmd: { action: 'play' | 'stop'; mediaUrl?: string } | undefined;
-      const base = stateRef.current || createDefaultSessionState();
-      const next: GameSessionState = JSON.parse(JSON.stringify(base));
-      next.updatedAt = Math.max(Date.now(), (base.updatedAt || 0) + 1);
 
-      switch (action) {
+      setState((prev) => {
+        const base = prev || createDefaultSessionState();
+        const next: GameSessionState = JSON.parse(JSON.stringify(base));
+        next.updatedAt = Date.now();
+
+        switch (action) {
           case 'team:setActive':
             next.activeTeam = payload.team === 'blue' ? 'blue' : 'red';
             break;
@@ -944,42 +868,31 @@ export const GameSyncProvider: React.FC<{
                 ticTacToe: createFallbackTicTacToe(next.activeTeam),
               };
             } else {
-              if (!Array.isArray(next.usedItemIds)) {
-                next.usedItemIds = [];
-              }
-              if (next.autoSelectionEnabled === undefined) {
-                next.autoSelectionEnabled = true;
-              }
-
               const catItems = contentItems.filter((i) => i.category === card.category);
-              let chosen: ContentItem | undefined;
-
-              if (payload.itemId && payload.itemId !== 'auto') {
-                chosen = catItems.find((i) => i.id === payload.itemId);
-              }
-
-              if (!chosen) {
-                chosen = getAutomaticContentItem(card.category, catItems, next.usedItemIds);
-              }
-
-              if (chosen && chosen.id && !next.usedItemIds.includes(chosen.id)) {
-                next.usedItemIds.push(chosen.id);
-              }
-
+              const chosen =
+                (payload.itemId && catItems.find((i) => i.id === payload.itemId)) || catItems[0];
               next.activeMiniGame = {
                 cardNumber: card.cardNumber,
                 category: card.category,
                 categoryTitle: card.categoryTitle,
-                snapshot: {
-                  itemId: chosen.id,
-                  category: chosen.category,
-                  title: chosen.title,
-                  prompt: chosen.prompt,
-                  answer: chosen.answer,
-                  options: chosen.options ? [...chosen.options] : undefined,
-                  mediaUrl: chosen.mediaUrl,
-                  blurAmount: typeof chosen.blurAmount === 'number' ? chosen.blurAmount : 28,
-                },
+                snapshot: chosen
+                  ? {
+                      itemId: chosen.id,
+                      category: chosen.category,
+                      title: chosen.title,
+                      prompt: chosen.prompt,
+                      answer: chosen.answer,
+                      mediaUrl: chosen.mediaUrl,
+                      blurAmount: typeof chosen.blurAmount === 'number' ? chosen.blurAmount : 28,
+                    }
+                  : {
+                      itemId: 'fallback',
+                      category: card.category as ContentCategory,
+                      title: card.categoryTitle,
+                      prompt: card.categoryTitle,
+                      answer: 'Official Answer',
+                      blurAmount: 28,
+                    },
                 timerSeconds: 30,
                 timerRunning: false,
                 answerRevealed: false,
@@ -1017,13 +930,11 @@ export const GameSyncProvider: React.FC<{
             next.activeMiniGame = null;
             next.boardDeckId = (next.boardDeckId || 1) + 1;
             next.cards = createFallbackCards();
-            next.usedItemIds = [];
             break;
 
           case 'minigame:useItem': {
             const mg = next.activeMiniGame;
             if (!mg || mg.category === 'tictactoe') break;
-            if (!Array.isArray(next.usedItemIds)) next.usedItemIds = [];
             const catItems = contentItems.filter((i) => i.category === mg.category);
             const chosen =
               (payload.itemId && catItems.find((i) => i.id === payload.itemId)) || catItems[0];
@@ -1031,22 +942,12 @@ export const GameSyncProvider: React.FC<{
               const baseSnap = chosen || mg.snapshot!;
               const customBlur =
                 payload.blurAmount !== undefined ? Number(payload.blurAmount) : undefined;
-              const itemId = baseSnap.id || (baseSnap as any).itemId || 'custom';
-              if (itemId && !next.usedItemIds.includes(itemId)) {
-                next.usedItemIds.push(itemId);
-              }
               mg.snapshot = {
-                itemId,
+                itemId: baseSnap.id || (baseSnap as any).itemId || 'custom',
                 category: mg.category as ContentCategory,
                 title: payload.title?.trim() || baseSnap.title,
                 prompt: payload.prompt?.trim() || baseSnap.prompt,
                 answer: payload.answer?.trim() || baseSnap.answer,
-                options:
-                  Array.isArray(payload.options) && payload.options.length > 0
-                    ? payload.options
-                    : baseSnap.options
-                    ? [...baseSnap.options]
-                    : undefined,
                 mediaUrl: baseSnap.mediaUrl,
                 blurAmount:
                   customBlur !== undefined && !Number.isNaN(customBlur)
@@ -1059,50 +960,6 @@ export const GameSyncProvider: React.FC<{
               mg.imageUnblurred = false;
               mg.audioPlaying = false;
             }
-            break;
-          }
-
-          case 'minigame:autoSelect': {
-            const mg = next.activeMiniGame;
-            if (!mg || mg.category === 'tictactoe') break;
-            if (!Array.isArray(next.usedItemIds)) next.usedItemIds = [];
-            const catItems = contentItems.filter((i) => i.category === mg.category);
-            const currentId = mg.snapshot?.itemId;
-            const fresh = getAutomaticContentItem(mg.category, catItems, next.usedItemIds, currentId);
-            if (fresh) {
-              if (!next.usedItemIds.includes(fresh.id)) {
-                next.usedItemIds.push(fresh.id);
-              }
-              mg.snapshot = {
-                itemId: fresh.id,
-                category: fresh.category,
-                title: fresh.title,
-                prompt: fresh.prompt,
-                answer: fresh.answer,
-                options: fresh.options ? [...fresh.options] : undefined,
-                mediaUrl: fresh.mediaUrl,
-                blurAmount: typeof fresh.blurAmount === 'number' ? fresh.blurAmount : 28,
-              };
-              mg.timerSeconds = 30;
-              mg.timerRunning = false;
-              mg.answerRevealed = false;
-              mg.imageUnblurred = false;
-              mg.audioPlaying = false;
-              mg.scored = false;
-              mg.scoreResult = 'pending';
-              mg.awardedTeam = null;
-            }
-            break;
-          }
-
-          case 'session:toggleAutoSelection': {
-            next.autoSelectionEnabled =
-              payload.enabled !== undefined ? Boolean(payload.enabled) : !next.autoSelectionEnabled;
-            break;
-          }
-
-          case 'session:resetUsedItems': {
-            next.usedItemIds = [];
             break;
           }
 
@@ -1234,9 +1091,6 @@ export const GameSyncProvider: React.FC<{
               if (!playerName) break;
               cell.owner = currentTeam;
               cell.playerName = playerName;
-              cell.playerImageUrl =
-                (payload.playerImageUrl ? String(payload.playerImageUrl) : null) ||
-                resolveBzzoiroPlayerImageUrl(playerName);
               ttt.rejectedFeedback = null;
               const outcome = evaluateTicTacToeBoard(ttt);
               if (outcome.winner) {
@@ -1296,53 +1150,49 @@ export const GameSyncProvider: React.FC<{
           }
         }
 
-      if (audioCmd) {
-        triggerAudioPlayback(audioCmd.action, audioCmd.mediaUrl);
-      }
-      stateRef.current = next;
-      setState(next);
-      broadcastLocalSync(next, undefined, audioCmd);
-      return next;
+        if (audioCmd) {
+          triggerAudioPlayback(audioCmd.action, audioCmd.mediaUrl);
+        }
+        broadcastLocalSync(next, undefined, audioCmd);
+        return next;
+      });
     },
     [contentItems, broadcastLocalSync, triggerAudioPlayback]
   );
 
   const sendHostAction = async (action: string, payload: Record<string, any> = {}) => {
     if (!ownerAuth.token) return;
-
-    // 1. Compute and broadcast locally in 0ms for instant /host and /studio responsiveness
-    const nextState = applyLocalAction(action, payload);
-
-    // 2. If WebSocket is active, push over WebSocket with authentication token
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      try {
-        wsRef.current.send(
-          JSON.stringify({
-            type: 'host:action',
-            action,
-            payload,
-            token: ownerAuth.token,
-          })
-        );
-      } catch {
-        // ignore websocket send error
-      }
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'host:action',
+          action,
+          payload,
+        })
+      );
+      return;
     }
 
-    // 3. Always push authoritative clientState to backend REST API so server disk & remote studios stay 100% in sync
+    // Apply immediately for responsive UI & BroadcastChannel cross-tab sync
+    applyLocalAction(action, payload);
+
     try {
-      fetch('/api/host/action', {
+      const res = await fetch('/api/host/action', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${ownerAuth.token}`,
         },
-        body: JSON.stringify({
-          action,
-          payload,
-          clientState: nextState,
-        }),
-      }).catch(() => {});
+        body: JSON.stringify({ action, payload }),
+      });
+      const ct = res.headers.get('content-type') || '';
+      if (res.ok && ct.includes('application/json')) {
+        const data = await res.json();
+        if (data.state) {
+          setState(data.state);
+          broadcastLocalSync(data.state);
+        }
+      }
     } catch {
       // Local state already updated and broadcast
     }
@@ -1376,7 +1226,6 @@ export const GameSyncProvider: React.FC<{
     title: string;
     prompt: string;
     answer: string;
-    options?: string[];
     mediaUrl?: string;
     blurAmount?: number;
   }) => {
@@ -1391,7 +1240,6 @@ export const GameSyncProvider: React.FC<{
       title: itemInput.title,
       prompt: itemInput.prompt,
       answer: itemInput.answer,
-      options: itemInput.options ? [...itemInput.options] : undefined,
       mediaUrl: itemInput.mediaUrl,
       blurAmount: parsedBlur,
       createdAt: new Date().toISOString(),
@@ -1434,7 +1282,6 @@ export const GameSyncProvider: React.FC<{
       title?: string;
       prompt?: string;
       answer?: string;
-      options?: string[];
       mediaUrl?: string;
       blurAmount?: number;
     }
@@ -1447,7 +1294,6 @@ export const GameSyncProvider: React.FC<{
             title: updates.title !== undefined ? updates.title : item.title,
             prompt: updates.prompt !== undefined ? updates.prompt : item.prompt,
             answer: updates.answer !== undefined ? updates.answer : item.answer,
-            options: updates.options !== undefined ? updates.options : item.options,
             mediaUrl: updates.mediaUrl !== undefined ? updates.mediaUrl : item.mediaUrl,
             blurAmount:
               updates.blurAmount !== undefined
@@ -1511,7 +1357,6 @@ export const GameSyncProvider: React.FC<{
         logoutOwner,
         sendHostAction,
         refreshContentItems,
-        forceSync,
         createContentItem,
         updateContentItem,
         deleteContentItem,

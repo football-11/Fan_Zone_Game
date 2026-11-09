@@ -17,6 +17,10 @@ import {
   signOutOwner,
   syncContentItemToFirestore,
 } from '../firebase';
+import {
+  BZZOIRO_CLUB_POOL,
+  resolveBzzoiroPlayerImageUrl,
+} from '../data/bzzoiroSports';
 
 interface OwnerAuthState {
   authenticated: boolean;
@@ -63,18 +67,7 @@ const STATE_STORAGE_KEY = 'fanzone_live_state_v1';
 const CONTENT_STORAGE_KEY = 'fanzone_content_items_v1';
 const SYNC_CHANNEL_NAME = 'fanzone_live_sync_channel';
 
-const CLUB_POOL: TicTacToeClub[] = [
-  { id: 'real_madrid', name: 'Real Madrid', shortName: 'RMA' },
-  { id: 'barcelona', name: 'FC Barcelona', shortName: 'BAR' },
-  { id: 'man_city', name: 'Manchester City', shortName: 'MCI' },
-  { id: 'psg', name: 'Paris Saint-Germain', shortName: 'PSG' },
-  { id: 'chelsea', name: 'Chelsea FC', shortName: 'CHE' },
-  { id: 'ac_milan', name: 'AC Milan', shortName: 'MIL' },
-  { id: 'man_united', name: 'Manchester United', shortName: 'MUN' },
-  { id: 'juventus', name: 'Juventus FC', shortName: 'JUV' },
-  { id: 'bayern', name: 'Bayern Munich', shortName: 'BAY' },
-  { id: 'inter_milan', name: 'Inter Milan', shortName: 'INT' },
-];
+const CLUB_POOL: TicTacToeClub[] = BZZOIRO_CLUB_POOL;
 
 const CLUB_IDS = new Set(CLUB_POOL.map((c) => c.id));
 
@@ -181,6 +174,8 @@ function createFallbackTicTacToe(startingTeam: TeamId = 'red'): TicTacToeState {
     id: c.id,
     name: c.name,
     code: c.shortName,
+    bzzoiroTeamId: c.bzzoiroTeamId,
+    logoUrl: c.logoUrl,
   }));
   const cells = [];
   const hintsByCell: Record<number, string[]> = {};
@@ -296,7 +291,7 @@ function createDefaultSessionState(): GameSessionState {
     boardDeckId: 1,
     cards: createFallbackCards(),
     activeMiniGame: null,
-    updatedAt: Date.now(),
+    updatedAt: 0,
   };
 }
 
@@ -365,6 +360,18 @@ export const GameSyncProvider: React.FC<{
   const wsRef = useRef<WebSocket | null>(null);
   const channelRef = useRef<BroadcastChannel | null>(null);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
+  const stateRef = useRef<GameSessionState | null>(state);
+  const contentItemsRef = useRef<ContentItem[]>(contentItems);
+  const inFlightPollRef = useRef(false);
+  const lastLocalSyncAtRef = useRef(0);
+
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
+  useEffect(() => {
+    contentItemsRef.current = contentItems;
+  }, [contentItems]);
 
   const persistOwnerAuth = useCallback((nextAuth: OwnerAuthState) => {
     setOwnerAuth(nextAuth);
@@ -418,7 +425,7 @@ export const GameSyncProvider: React.FC<{
     []
   );
 
-  // Cross-Tab BroadcastChannel + Storage Event Listener for instant /host <-> /studio sync on Vercel
+  // Cross-Tab BroadcastChannel + Storage Event Listener for instant 0ms /host <-> /studio sync on Vercel
   useEffect(() => {
     if (typeof BroadcastChannel !== 'undefined') {
       const ch = new BroadcastChannel(SYNC_CHANNEL_NAME);
@@ -427,13 +434,38 @@ export const GameSyncProvider: React.FC<{
         const msg = event.data;
         if (!msg) return;
         if (msg.type === 'local:sync') {
-          if (msg.state) setState(msg.state);
-          if (Array.isArray(msg.contentItems)) setContentItems(msg.contentItems);
+          lastLocalSyncAtRef.current = Date.now();
+          if (msg.state) {
+            stateRef.current = msg.state;
+            setState(msg.state);
+          }
+          if (Array.isArray(msg.contentItems)) {
+            contentItemsRef.current = msg.contentItems;
+            setContentItems(msg.contentItems);
+          }
           if (msg.audioCmd) {
             triggerAudioPlayback(msg.audioCmd.action, msg.audioCmd.mediaUrl);
           }
+        } else if (msg.type === 'studio:request_sync' && role === 'host' && stateRef.current) {
+          try {
+            ch.postMessage({
+              type: 'local:sync',
+              state: stateRef.current,
+              contentItems: contentItemsRef.current,
+            });
+          } catch {
+            // ignore
+          }
         }
       };
+
+      if (role === 'studio') {
+        try {
+          ch.postMessage({ type: 'studio:request_sync' });
+        } catch {
+          // ignore
+        }
+      }
     }
 
     const handleStorage = (e: StorageEvent) => {
@@ -447,6 +479,8 @@ export const GameSyncProvider: React.FC<{
             ) {
               return;
             }
+            lastLocalSyncAtRef.current = Date.now();
+            stateRef.current = parsed;
             setState(parsed);
           }
         } catch {
@@ -455,7 +489,10 @@ export const GameSyncProvider: React.FC<{
       } else if (e.key === CONTENT_STORAGE_KEY && e.newValue) {
         try {
           const parsed = JSON.parse(e.newValue);
-          if (Array.isArray(parsed)) setContentItems(parsed);
+          if (Array.isArray(parsed)) {
+            contentItemsRef.current = parsed;
+            setContentItems(parsed);
+          }
         } catch {
           // ignore
         }
@@ -470,43 +507,77 @@ export const GameSyncProvider: React.FC<{
         channelRef.current = null;
       }
     };
-  }, [triggerAudioPlayback]);
+  }, [role, triggerAudioPlayback]);
 
   const fetchInitialState = useCallback(async () => {
+    if (inFlightPollRef.current) return;
+    inFlightPollRef.current = true;
+    const currentUpdatedAt = stateRef.current?.updatedAt || 0;
+
     try {
       if (role === 'host' && ownerAuth.authenticated && ownerAuth.token) {
-        const res = await fetch('/api/host/state', {
+        const res = await fetch(`/api/host/state?since=${currentUpdatedAt}`, {
           headers: { Authorization: `Bearer ${ownerAuth.token}` },
+          cache: 'no-store',
         });
         const ct = res.headers.get('content-type') || '';
         if (res.ok && ct.includes('application/json')) {
           const data = await res.json();
-          if (data.state) {
-            setState((prev) => {
-              if (prev && prev.updatedAt > (data.state.updatedAt || 0)) return prev;
-              return data.state;
-            });
+          const serverUpdatedAt = Number(data.updatedAt || data.state?.updatedAt || 0);
+
+          // If a Vercel serverless instance cold-restarted and lost state, re-hydrate it from Host
+          if (currentUpdatedAt > 0 && serverUpdatedAt < currentUpdatedAt && stateRef.current) {
+            fetch('/api/host/action', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${ownerAuth.token}`,
+              },
+              body: JSON.stringify({
+                action: 'session:sync',
+                clientState: stateRef.current,
+                contentItems: contentItemsRef.current,
+              }),
+            }).catch(() => {});
+            return;
           }
-          if (Array.isArray(data.contentItems) && data.contentItems.length > 0) {
-            setContentItems(data.contentItems);
+
+          if (!data.unchanged && data.state && serverUpdatedAt > currentUpdatedAt) {
+            stateRef.current = data.state;
+            setState(data.state);
+            if (Array.isArray(data.contentItems) && data.contentItems.length > 0) {
+              contentItemsRef.current = data.contentItems;
+              setContentItems(data.contentItems);
+            }
           }
           return;
         }
       }
-      const res = await fetch('/api/studio/state');
+
+      const res = await fetch(`/api/studio/state?since=${currentUpdatedAt}`, {
+        cache: 'no-store',
+      });
       const ct = res.headers.get('content-type') || '';
       if (res.ok && ct.includes('application/json')) {
         const data = await res.json();
-        if (data.state) {
-          setState((prev) => {
-            if (prev && prev.updatedAt > (data.state.updatedAt || 0)) return prev;
-            return data.state;
-          });
-          return;
+        if (data.unchanged) return;
+        if (data.state && Array.isArray(data.state.cards)) {
+          const incomingUpdatedAt = Number(data.state.updatedAt || data.updatedAt || 0);
+          const currentLocalTimestamp = stateRef.current?.updatedAt || 0;
+          const isFreshOrNewer =
+            currentLocalTimestamp === 0 ||
+            incomingUpdatedAt >= currentLocalTimestamp ||
+            Date.now() - lastLocalSyncAtRef.current > 3000;
+          if (isFreshOrNewer || !stateRef.current) {
+            stateRef.current = data.state;
+            setState(data.state);
+          }
         }
       }
     } catch {
       // Keep local state if API is static
+    } finally {
+      inFlightPollRef.current = false;
     }
   }, [role, ownerAuth.authenticated, ownerAuth.token]);
 
@@ -514,14 +585,16 @@ export const GameSyncProvider: React.FC<{
     fetchInitialState();
   }, [fetchInitialState]);
 
-  // Serverless / Vercel Fallback Polling when WebSocket is disconnected
+  // High-speed delta polling when WebSocket is disconnected (250ms on /studio for near-instant remote stage updates)
   useEffect(() => {
     if (connected) return;
+    const intervalMs = role === 'studio' ? 250 : 1800;
     const pollId = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
       fetchInitialState();
-    }, 1500);
+    }, intervalMs);
     return () => clearInterval(pollId);
-  }, [connected, fetchInitialState]);
+  }, [connected, role, fetchInitialState]);
 
   // Local client timer tick when WebSocket is disconnected
   useEffect(() => {
@@ -770,17 +843,15 @@ export const GameSyncProvider: React.FC<{
     }
   };
 
-  // Complete local game engine so all 16 host actions work identically on Vercel & local
+  // Complete synchronous local game engine so all 16 host actions execute & broadcast in 0ms
   const applyLocalAction = useCallback(
-    (action: string, payload: Record<string, any> = {}) => {
+    (action: string, payload: Record<string, any> = {}): GameSessionState => {
       let audioCmd: { action: 'play' | 'stop'; mediaUrl?: string } | undefined;
+      const base = stateRef.current || createDefaultSessionState();
+      const next: GameSessionState = JSON.parse(JSON.stringify(base));
+      next.updatedAt = Math.max(Date.now(), (base.updatedAt || 0) + 1);
 
-      setState((prev) => {
-        const base = prev || createDefaultSessionState();
-        const next: GameSessionState = JSON.parse(JSON.stringify(base));
-        next.updatedAt = Date.now();
-
-        switch (action) {
+      switch (action) {
           case 'team:setActive':
             next.activeTeam = payload.team === 'blue' ? 'blue' : 'red';
             break;
@@ -1091,6 +1162,9 @@ export const GameSyncProvider: React.FC<{
               if (!playerName) break;
               cell.owner = currentTeam;
               cell.playerName = playerName;
+              cell.playerImageUrl =
+                (payload.playerImageUrl ? String(payload.playerImageUrl) : null) ||
+                resolveBzzoiroPlayerImageUrl(playerName);
               ttt.rejectedFeedback = null;
               const outcome = evaluateTicTacToeBoard(ttt);
               if (outcome.winner) {
@@ -1150,18 +1224,24 @@ export const GameSyncProvider: React.FC<{
           }
         }
 
-        if (audioCmd) {
-          triggerAudioPlayback(audioCmd.action, audioCmd.mediaUrl);
-        }
-        broadcastLocalSync(next, undefined, audioCmd);
-        return next;
-      });
+      if (audioCmd) {
+        triggerAudioPlayback(audioCmd.action, audioCmd.mediaUrl);
+      }
+      stateRef.current = next;
+      setState(next);
+      broadcastLocalSync(next, undefined, audioCmd);
+      return next;
     },
     [contentItems, broadcastLocalSync, triggerAudioPlayback]
   );
 
   const sendHostAction = async (action: string, payload: Record<string, any> = {}) => {
     if (!ownerAuth.token) return;
+
+    // 1. Compute and broadcast locally in 0ms for instant /host and /studio responsiveness
+    const nextState = applyLocalAction(action, payload);
+
+    // 2. If WebSocket is active, push over WebSocket
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(
         JSON.stringify({
@@ -1173,26 +1253,20 @@ export const GameSyncProvider: React.FC<{
       return;
     }
 
-    // Apply immediately for responsive UI & BroadcastChannel cross-tab sync
-    applyLocalAction(action, payload);
-
+    // 3. Push authoritative clientState to serverless API so remote /studio devices receive the exact state
     try {
-      const res = await fetch('/api/host/action', {
+      await fetch('/api/host/action', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${ownerAuth.token}`,
         },
-        body: JSON.stringify({ action, payload }),
+        body: JSON.stringify({
+          action,
+          payload,
+          clientState: nextState,
+        }),
       });
-      const ct = res.headers.get('content-type') || '';
-      if (res.ok && ct.includes('application/json')) {
-        const data = await res.json();
-        if (data.state) {
-          setState(data.state);
-          broadcastLocalSync(data.state);
-        }
-      }
     } catch {
       // Local state already updated and broadcast
     }
